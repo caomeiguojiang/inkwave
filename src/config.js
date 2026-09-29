@@ -1,21 +1,22 @@
+import {translate,formatMessage} from './i18n/runtime.js';
 // Shared tuning + content definitions. Every module reads from here; nothing here imports anything.
 
 export const GAME_TITLE = 'INKWAVE';
-export const GAME_SUBTITLE = 'Turf Riot';
+export const GAME_SUBTITLE = "Turf Riot";
 export const VERSION = '1.0.0';
 
 // Team ink palettes. Team 0 ("Alpha") is always the local player's team; a palette is picked per match.
 export const TEAM_PALETTES = [
-  { id: 'tangerine-cobalt', a: '#ff8a14', b: '#2f5bff', names: ['Tangerine', 'Cobalt'] },
-  { id: 'bubblegum-mint', a: '#ff3f9e', b: '#18d48c', names: ['Bubblegum', 'Mint'] },
-  { id: 'lemon-grape', a: '#f2e312', b: '#8a3cff', names: ['Lemon', 'Grape'] },
-  { id: 'aqua-cherry', a: '#10d2e6', b: '#ff4150', names: ['Aqua', 'Cherry'] },
-  { id: 'lime-magenta', a: '#a6f01a', b: '#e02cd8', names: ['Lime', 'Magenta'] },
+  { id: 'tangerine-cobalt', a: '#ff8a14', b: '#2f5bff', get names() { return [translate("Tangerine"), translate("Cobalt")]; } },
+  { id: 'bubblegum-mint', a: '#ff3f9e', b: '#18d48c', get names() { return [translate("Bubblegum"), translate("Mint")]; } },
+  { id: 'lemon-grape', a: '#f2e312', b: '#8a3cff', get names() { return [translate("Lemon"), translate("Grape")]; } },
+  { id: 'aqua-cherry', a: '#10d2e6', b: '#ff4150', get names() { return [translate("Aqua"), translate("Cherry")]; } },
+  { id: 'lime-magenta', a: '#a6f01a', b: '#e02cd8', get names() { return [translate("Lime"), translate("Magenta")]; } },
 ];
 // Used instead when settings.colorblind is on (yellow vs blue is safe for all common CVD types).
-export const COLORBLIND_PALETTE = { id: 'cb-yellow-blue', a: '#ffd21a', b: '#2a52ff', names: ['Sun', 'Sea'] };
+export const COLORBLIND_PALETTE = { id: 'cb-yellow-blue', a: '#ffd21a', b: '#2a52ff', get names() { return [translate("Sun"), translate("Sea")]; } };
 
-export const TEAM_NAMES = ['Alpha', 'Bravo'];
+export const TEAM_NAMES = ["Alpha", "Bravo"];
 
 // ---- Player physics / feel (meters, seconds) ----
 export const PLAYER = {
@@ -89,8 +90,8 @@ export const PLAYER = {
 // stats.* are 0..1 display bars for the loadout screen.
 export const WEAPONS = {
   shooter: {
-    id: 'shooter', name: 'Spritzer', kind: 'shooter', class: 'Shooter', sub: 'bomb',
-    blurb: 'Rapid-fire all-rounder. Sprays a steady stream of ink blobs.',
+    id: 'shooter', get name() { return translate("Spritzer"); }, kind: 'shooter', get class() { return translate("Shooter"); }, sub: 'bomb',
+    get blurb() { return translate("Rapid-fire all-rounder. Sprays a steady stream of ink blobs."); },
     stats: { range: 0.5, damage: 0.45, rate: 0.85, mobility: 0.7, paint: 0.6 },
     fireInterval: 0.1, damage: 36, inkPerShot: 0.95,
     projSpeed: 34, straightTime: 0.13, range: 12.5,
@@ -100,8 +101,8 @@ export const WEAPONS = {
     special: 'slam', specialCost: 190,
   },
   roller: {
-    id: 'roller', name: 'Swell Roller', kind: 'roller', class: 'Roller', sub: 'bomb',
-    blurb: 'Roll out wide stripes of turf. Flick for a crushing splash.',
+    id: 'roller', get name() { return translate("Swell Roller"); }, kind: 'roller', get class() { return translate("Roller"); }, sub: 'bomb',
+    get blurb() { return translate("Roll out wide stripes of turf. Flick for a crushing splash."); },
     stats: { range: 0.35, damage: 0.95, rate: 0.3, mobility: 0.55, paint: 0.95 },
     rollSpeed: 4.4, rollWidth: 1.9, rollInkPerMeter: 1.1, rollDamage: 140,
     flickInterval: 0.62, flickWindup: 0.22, flickInk: 9, flickDrops: 9,
@@ -111,8 +112,8 @@ export const WEAPONS = {
     special: 'slam', specialCost: 170,
   },
   charger: {
-    id: 'charger', name: 'Glint Charger', kind: 'charger', class: 'Charger', sub: 'bomb',
-    blurb: 'Hold to charge, release for a long piercing line. Full charge splats.',
+    id: 'charger', get name() { return translate("Glint Charger"); }, kind: 'charger', get class() { return translate("Charger"); }, sub: 'bomb',
+    get blurb() { return translate("Hold to charge, release for a long piercing line. Full charge splats."); },
     stats: { range: 1.0, damage: 1.0, rate: 0.25, mobility: 0.35, paint: 0.45 },
     chargeTime: 1.0, rangeMin: 11, rangeMax: 27, damageMin: 40, damageMax: 160,
     inkFull: 18, lineSplatEvery: 1.2, lineRadius: 0.55, impactRadius: 1.2,
@@ -120,8 +121,8 @@ export const WEAPONS = {
     special: 'storm', specialCost: 180,
   },
   blaster: {
-    id: 'blaster', name: 'Popper Blaster', kind: 'blaster', class: 'Blaster', sub: 'bomb',
-    blurb: 'Slow shots that burst mid-air. Direct hits splat instantly.',
+    id: 'blaster', get name() { return translate("Popper Blaster"); }, kind: 'blaster', get class() { return translate("Blaster"); }, sub: 'bomb',
+    get blurb() { return translate("Slow shots that burst mid-air. Direct hits splat instantly."); },
     stats: { range: 0.55, damage: 0.9, rate: 0.3, mobility: 0.6, paint: 0.5 },
     fireInterval: 0.78, directDamage: 125, splashDamageMax: 70, splashDamageMin: 30,
     splashRadius: 2.6, inkPerShot: 9, projSpeed: 23, range: 10.5,
@@ -130,8 +131,8 @@ export const WEAPONS = {
     special: 'storm', specialCost: 180,
   },
   dualies: {
-    id: 'dualies', name: 'Twinfin Dualies', kind: 'dualies', class: 'Dualies', sub: 'bomb',
-    blurb: 'Twin pistols, alternating fire. Jump while firing to dodge-roll, then plant and unload.',
+    id: 'dualies', get name() { return translate("Twinfin Dualies"); }, kind: 'dualies', get class() { return translate("Dualies"); }, sub: 'bomb',
+    get blurb() { return translate("Twin pistols, alternating fire. Jump while firing to dodge-roll, then plant and unload."); },
     stats: { range: 0.42, damage: 0.4, rate: 0.95, mobility: 0.95, paint: 0.55 },
     fireInterval: 0.083, damage: 30, inkPerShot: 0.85,        // hands alternate: 12 shots/s, 4 hits to splat
     projSpeed: 32, straightTime: 0.11, range: 11,
@@ -142,8 +143,8 @@ export const WEAPONS = {
     special: 'slam', specialCost: 180,
   },
   slosher: {
-    id: 'slosher', name: 'Tidebucket Slosher', kind: 'slosher', class: 'Slosher', sub: 'bomb',
-    blurb: 'Heaves a heavy wave of ink in an arc: over cover, up ledges, a thick stripe where it lands.',
+    id: 'slosher', get name() { return translate("Tidebucket Slosher"); }, kind: 'slosher', get class() { return translate("Slosher"); }, sub: 'bomb',
+    get blurb() { return translate("Heaves a heavy wave of ink in an arc: over cover, up ledges, a thick stripe where it lands."); },
     stats: { range: 0.58, damage: 0.8, rate: 0.4, mobility: 0.6, paint: 0.78 },
     fireInterval: 0.62, windup: 0.13, inkPerShot: 7.5,
     projSpeed: 15, grav: 22, range: 9.5, drops: 8,
@@ -153,8 +154,8 @@ export const WEAPONS = {
     special: 'slam', specialCost: 175,
   },
   splatling: {
-    id: 'splatling', name: 'Gyre Splatling', kind: 'splatling', class: 'Splatling', sub: 'bomb',
-    blurb: 'Hold to spin up, release for a long high-speed stream. The more charge, the longer it lasts.',
+    id: 'splatling', get name() { return translate("Gyre Splatling"); }, kind: 'splatling', get class() { return translate("Splatling"); }, sub: 'bomb',
+    get blurb() { return translate("Hold to spin up, release for a long high-speed stream. The more charge, the longer it lasts."); },
     stats: { range: 0.78, damage: 0.55, rate: 1.0, mobility: 0.38, paint: 0.7 },
     chargeTime: 0.85, burstMin: 0.3, burstMax: 1.7, fireInterval: 0.066, damage: 28, inkPerShot: 0.6,
     projSpeed: 40, straightTime: 0.16, range: 15,
@@ -168,14 +169,14 @@ export const WEAPON_ORDER = ['shooter', 'dualies', 'splatling', 'roller', 'slosh
 
 export const SUB = {
   bomb: {
-    id: 'bomb', name: 'Splat Bomb', inkCost: 70, throwSpeed: 13.5, fuse: 0.95,
+    id: 'bomb', get name() { return translate("Splat Bomb"); }, inkCost: 70, throwSpeed: 13.5, fuse: 0.95,
     radius: 3.1, damageMax: 180, damageMin: 35, paintRadius: 2.7,
   },
 };
 
 export const SPECIALS = {
-  slam: { id: 'slam', name: 'Tidal Slam', blurb: 'Leap up and slam down in a huge ink shockwave.', rise: 0.55, hang: 0.25, radius: 5.2, killRadius: 3.2, damageMax: 180, damageMin: 55 },
-  storm: { id: 'storm', name: 'Ink Tempest', blurb: 'Hurl a rain cloud that soaks the turf below.', duration: 6.5, radius: 3.4, dps: 34, throwSpeed: 16, driftSpeed: 1.1 },
+  slam: { id: 'slam', get name() { return translate("Tidal Slam"); }, get blurb() { return translate("Leap up and slam down in a huge ink shockwave."); }, rise: 0.55, hang: 0.25, radius: 5.2, killRadius: 3.2, damageMax: 180, damageMin: 55 },
+  storm: { id: 'storm', get name() { return translate("Ink Tempest"); }, get blurb() { return translate("Hurl a rain cloud that soaks the turf below."); }, duration: 6.5, radius: 3.4, dps: 34, throwSpeed: 16, driftSpeed: 1.1 },
 };
 
 // ---- Match ----
@@ -189,9 +190,9 @@ export const MATCH = {
 
 export const DIFFICULTY = {
   // aimOmega / aimTurn: bot aim spring stiffness (rad/s) and turn-rate cap (rad/s) — see bots.js
-  easy:   { id: 'easy',   name: 'Chill',  reaction: 0.55, aimError: 0.11, fireDiscipline: 0.55, awareness: 16, aimOmega: 9,  aimTurn: 7 },
-  normal: { id: 'normal', name: 'Fresh',  reaction: 0.32, aimError: 0.06, fireDiscipline: 0.8,  awareness: 21, aimOmega: 13, aimTurn: 10 },
-  hard:   { id: 'hard',   name: 'Fierce', reaction: 0.17, aimError: 0.03, fireDiscipline: 0.95, awareness: 26, aimOmega: 18, aimTurn: 14 },
+  easy:   { id: 'easy',   get name() { return translate("Chill"); },  reaction: 0.55, aimError: 0.11, fireDiscipline: 0.55, awareness: 16, aimOmega: 9,  aimTurn: 7 },
+  normal: { id: 'normal', get name() { return translate("Fresh"); },  reaction: 0.32, aimError: 0.06, fireDiscipline: 0.8,  awareness: 21, aimOmega: 13, aimTurn: 10 },
+  hard:   { id: 'hard',   get name() { return translate("Fierce"); }, reaction: 0.17, aimError: 0.03, fireDiscipline: 0.95, awareness: 26, aimOmega: 18, aimTurn: 14 },
 };
 
 // Every stage can be played by day or at dusk: `times` maps the time of day to an environment theme (`theme` is the
@@ -199,11 +200,11 @@ export const DIFFICULTY = {
 export const TIMES = ['day', 'dusk'];
 export const mapTheme = (map, time = 'day') => (map && map.times && map.times[time]) || (map && map.theme) || 'day';
 export const MAPS = [
-  { id: 'tidewater', name: 'Tidewater Plaza', blurb: 'A sun-bleached harbor plaza on the edge of the sea.', theme: 'day', times: { day: 'day', dusk: 'sunset' } },
-  { id: 'kelpline', name: 'Kelpline Terminal', blurb: 'Container yard with grate catwalks, a sunken trench and a steel gantry deck.', theme: 'day', times: { day: 'day', dusk: 'sunset' } },
-  { id: 'halyard', name: 'Halyard Marina', blurb: 'Floating docks, a tug on blocks and a car ferry moored across the middle. Mind the water.', theme: 'golden', times: { day: 'golden', dusk: 'sunset' } },
+  { id: 'tidewater', get name() { return translate("Tidewater Plaza"); }, get blurb() { return translate("A sun-bleached harbor plaza on the edge of the sea."); }, theme: 'day', times: { day: 'day', dusk: 'sunset' } },
+  { id: 'kelpline', get name() { return translate("Kelpline Terminal"); }, get blurb() { return translate("Container yard with grate catwalks, a sunken trench and a steel gantry deck."); }, theme: 'day', times: { day: 'day', dusk: 'sunset' } },
+  { id: 'halyard', get name() { return translate("Halyard Marina"); }, get blurb() { return translate("Floating docks, a tug on blocks and a car ferry moored across the middle. Mind the water."); }, theme: 'golden', times: { day: 'golden', dusk: 'sunset' } },
   // (src/world/stages/cargo, ported from PR #8's rebuilt Kelpline) — online only, humans only, never a Boss Battle
-  { id: 'cargo', name: 'Cargo Terminal', blurb: 'A container terminal at shift change: a gantry crane straddles the pier between two moored box ships.', theme: 'day', times: { day: 'day', dusk: 'sunset' }, onlineOnly: true, noBots: true, noBoss: true },
+  { id: 'cargo', get name() { return translate("Cargo Terminal"); }, blurb: 'A container terminal at shift change: a gantry crane straddles the pier between two moored box ships.', theme: 'day', times: { day: 'day', dusk: 'sunset' }, onlineOnly: true, noBots: true, noBoss: true },
 ];
 // Stage rules (a MAPS entry's flags), enforced by the lobby host (net/session.js, net/mock.js), the menus and main.js:
 //   onlineOnly  only in the online lobby's stage picker — never the offline Play flow (Turf War or Boss Battle)
@@ -221,8 +222,8 @@ export const bossFallbackMap = (prefer) => (mapBossOk(prefer) ? prefer : (MAPS.f
 export function noBotsStartBlock(lobby) {
   if (!lobby || !mapNoBots(lobby.map)) return null;
   const ps = lobby.players || [];
-  if (ps.length < 2) return 'Needs 2+ players — no bots on this stage';
-  if (!ps.some((p) => p.team === 0) || !ps.some((p) => p.team === 1)) return 'Needs a player on each team';
+  if (ps.length < 2) return translate("Needs 2+ players — no bots on this stage");
+  if (!ps.some((p) => p.team === 0) || !ps.some((p) => p.team === 1)) return translate("Needs a player on each team");
   return null;
 }
 
@@ -239,6 +240,7 @@ export const PROGRESSION = {
 
 // ---- Settings defaults (persisted in localStorage 'inkwave.settings') ----
 export const DEFAULT_SETTINGS = {
+  language: 'auto',         // browser language, or en / zh-Hans / zh-Hant / ja
   sensitivity: 1.0,         // mouse multiplier 0.2..3
   padSensitivity: 1.0,
   invertY: false,

@@ -1,3 +1,4 @@
+import {translate,formatMessage} from '../i18n/runtime.js';
 // INKWAVE UI — HULLBREAKER art (boss mode): original sticker illustrations as SVG markup strings, shared by the HUD
 // (boss bar emblem, move callouts, title card) and the menus (mode card, lobby, results).
 //   bossEmblem({ cracked })   front view head-and-shell badge (100×100)
@@ -16,11 +17,11 @@ const CARA = '#a8283f', CARA_D = '#6c1628', CARA_L = '#dc4d61';
 const CLAW = '#c5354c', CLAW_L = '#f07a82';
 const BELLY = '#f1c9a6';
 
-export const BOSS_NAME = 'HULLBREAKER';
-export const BOSS_EPITHET = 'The Rust-Shelled Terror';
-export const BOSS_BLURB = 'A giant hermit crab living in a rusted shipping container. Everyone in the room teams up to sink it before time runs out.';
+export const BOSS_NAME = "HULLBREAKER";
+export const BOSS_EPITHET = "The Rust-Shelled Terror";
+export const BOSS_BLURB = "A giant hermit crab living in a rusted shipping container. Everyone in the room teams up to sink it before time runs out.";
 export const MOVE_LABELS = {
-  slam: 'SLAM!', barrage: 'INCOMING!', sweep: 'SWEEP!', charge: 'CHARGE!', crablets: 'BROOD!', frenzy: 'FRENZY!', open: 'OPEN!',
+  get slam() { return translate("SLAM!"); }, get barrage() { return translate("INCOMING!"); }, get sweep() { return translate("SWEEP!"); }, get charge() { return translate("CHARGE!"); }, get crablets() { return translate("BROOD!"); }, get frenzy() { return translate("FRENZY!"); }, get open() { return translate("OPEN!"); },
 };
 
 // ------------------------------------------------------------------ bits

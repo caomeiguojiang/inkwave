@@ -4,9 +4,12 @@ Fork: https://github.com/caomeiguojiang/inkwave, branch `codex/assertok`.
 Original game: https://github.com/jaydendavisnc/inkwave, MIT, Jayden Davis.
 Upstream baseline: `53b9aa3fc2dc1201f14c87d165597ce37c12118a`.
 
-The original game source, artwork, credits and Cloudflare server remain intact.
-`tools/build-assertok.mjs` assembles a separate `dist/` with a reviewed translation
-catalog and a same-origin WebSocket endpoint. `server-node/` implements the upstream
+The fork integrates i18next into native menus, configuration metadata and HUD source.
+Language lives in Settings > General and switches live without reloading. CJK uses
+locally hosted Swei Gothic regional fonts. Artwork, author credits and gameplay stay intact.
+`tools/build-assertok.mjs` validates translations and packages the normal source;
+it does not rewrite JavaScript or inject a selector. The transport uses a same-origin
+WebSocket endpoint. `server-node/` implements the upstream
 version-1 relay protocol and serves only `dist/`. It is a relay, not an authoritative
 game server; the room host still simulates the match. Rooms disappear on restart.
 
@@ -15,6 +18,7 @@ game server; the room host still simulates the match. Rooms disappear on restart
 Requires Node 24.14.0, Python 3, Chrome and Docker (WSL works on Windows).
 
 ```powershell
+python -m pip install -r tools/requirements-fonts.txt
 npm ci --ignore-scripts
 npm ci --ignore-scripts --prefix server-node
 npm run build:assertok
@@ -24,7 +28,7 @@ $env:STATIC_ROOT=(Resolve-Path dist).Path
 node server-node/index.js
 ```
 
-In another terminal, run `npm run test:web` and
+In another terminal, run `npm run test:web`, `npm run test:language` and
 `node tools/net-test-assertok.mjs --url http://127.0.0.1:8490/ --clients 2 --quality low --secs 12 --full --leave host`.
 Set `CHROME_PATH` to use another Chrome binary and `INKWAVE_URL` for public checks.
 Build the image only after all build and verification commands succeed:
@@ -36,15 +40,16 @@ Never reuse a published release tag.
 English, Simplified Chinese, Traditional Chinese and Japanese are supported.
 Selection order is valid `?lang=`, saved manual choice, browser `navigator.languages`,
 then English. Chinese region/script tags distinguish Simplified and Traditional.
-The language selector persists the choice and reloads from the menu; it hides in a
-connected lobby or match. Player names and network identifiers remain unchanged.
+Settings > General persists the choice and updates the interface immediately.
+Player names and network identifiers remain unchanged.
 
-Translations live in `src/i18n/messages.tsv`: English key, Simplified Chinese,
-Japanese, optional Traditional Chinese override (tab-separated). Traditional
-Chinese otherwise uses pinned OpenCC. Build validates placeholders and duplicates,
-parses edited JavaScript, and reports unused translations in `.local/i18n-build.json`.
-New upstream text falls back to English until reviewed; translated artwork text
-and human language review are not guaranteed by automated browser tests.
+Translations live in separate JSON resources under `src/i18n/locales/`, with
+i18next interpolation, plural rules and English fallback. The settings row includes
+Auto; it saves into `inkwave.settings` and preserves the match and network session.
+The old floating language control and page-reload implementation have been removed.
+See [native localization knowledge](docs/LOCALIZATION.md) for ownership, font generation,
+review rules and hot-switch verification. Embedded artwork and newly added upstream
+copy require separate review.
 
 ## Receive author updates
 

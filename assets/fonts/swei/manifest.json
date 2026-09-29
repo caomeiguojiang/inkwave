@@ -1,0 +1,69 @@
+{
+  "repository": "https://github.com/max32002/swei-gothic",
+  "revision": "c363a1d845aa782a71b7a068b5db0aff3f83ee86",
+  "files": [
+    {
+      "path": "SC-Medium.woff2",
+      "source_sha256": "987ba17f9ce68db5b85ecab27c4994db200f25b1ed324a2612c39ab1638c0e1a",
+      "sha256": "a7d218b1dfc62296e3580d23a07d5237caaa88903795aa8ebc9092d682a1a6ac",
+      "bytes": 128656,
+      "characters": 795
+    },
+    {
+      "path": "SC-Bold.woff2",
+      "source_sha256": "8eb0916b3f2ed1e7b093f15705918165efa8e35f1b58c8c61edb1d652bb56945",
+      "sha256": "ca9ba4fb43d8e6329874dd0fc3a178378a76a2adbf7acfb33c56204be45dc44b",
+      "bytes": 129544,
+      "characters": 795
+    },
+    {
+      "path": "SC-Black.woff2",
+      "source_sha256": "7a1ea988809fc80a8d5c9ecc2aa9ce983271343ac4a06db472d92ded61a2e8a4",
+      "sha256": "5f2a33714010c1ca9478f1b0527aa7fba0928d5a5cfd8bc3f66304dd4bbff20f",
+      "bytes": 129940,
+      "characters": 795
+    },
+    {
+      "path": "TC-Medium.woff2",
+      "source_sha256": "a66d84a2871c7af4d422d53df4fb94cb4227b15ea6da6a08ed1a9fa2ef187a2c",
+      "sha256": "37e34e5b73f4d0cd56f80e815cd1e3f42195c1bf8d5776403126fb736a091b96",
+      "bytes": 153492,
+      "characters": 804
+    },
+    {
+      "path": "TC-Bold.woff2",
+      "source_sha256": "04e35c0fbf683fdac7a3a6a8c31a28df202ebc52315fd94fed03ebcdb6ccb6ef",
+      "sha256": "448863f720722c548bd27f2d973be479b3b0f3acfab3b303e92e94dba901f244",
+      "bytes": 154612,
+      "characters": 804
+    },
+    {
+      "path": "TC-Black.woff2",
+      "source_sha256": "bedb105a1c4dc47752f6a3775a8e53ff76ee4ad42fbd161240e081286c23baf1",
+      "sha256": "47ad483c68f7d21cf86a5c787cddf6d1c60d95d41d67c70fc950d81afd487a89",
+      "bytes": 153624,
+      "characters": 804
+    },
+    {
+      "path": "JP-Medium.woff2",
+      "source_sha256": "a20285c2e829557254b4106ec71ce57f6d9f358e86e2f47bb455d4f9b87f7e14",
+      "sha256": "7ed3947206fa02b9c581008b16385a47e628c4d236f53af3d1e45f0b5bb81c27",
+      "bytes": 80668,
+      "characters": 544
+    },
+    {
+      "path": "JP-Bold.woff2",
+      "source_sha256": "8b9cd6ffef242ee308bbe4ca470eae9804e42e6cd460416cb9102fcf8802544e",
+      "sha256": "4a173260ef3e6e8f619f1eb5d118770735f7f10a724ea5498dffb4d83a557720",
+      "bytes": 80836,
+      "characters": 544
+    },
+    {
+      "path": "JP-Black.woff2",
+      "source_sha256": "1dfed5ea6f05c46d32b73064629f4c2e35c46f08eb538231164077d55427e3b5",
+      "sha256": "02928ffd71e7fdce1c83cb63dc2a8513282f113e91dc281e21aaf1a3c2b5dae4",
+      "bytes": 80284,
+      "characters": 544
+    }
+  ]
+}

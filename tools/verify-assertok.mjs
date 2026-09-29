@@ -19,14 +19,6 @@ try {
       await page.screenshot({path:`.local/screens/${lang}-${screen}.png`});
       writeFileSync(`.local/screens/${lang}-${screen}.txt`,await page.evaluate(()=>document.body.innerText));
     }
-    if (lang==='zh-CN') {
-      await page.evaluate(()=>__G.menus.show('main'));
-      await Promise.all([page.waitForNavigation({waitUntil:'networkidle0',timeout:120000}),page.select('.iw-language select','ja')]);
-      assert.equal(await page.evaluate(()=>document.documentElement.lang),'ja');
-      await page.goto(base+'?skipTitle&news=0',{waitUntil:'networkidle0',timeout:120000});
-      assert.equal(await page.evaluate(()=>document.documentElement.lang),'ja');
-      results.push({manualSelection:'ja',persistedWithoutQuery:true});
-    }
     await context.close();
   }
   assert.deepEqual(errors,[]);console.log(JSON.stringify({results,errors}));

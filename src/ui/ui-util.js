@@ -2,6 +2,7 @@
 // Pure DOM; no three.js dependency.
 
 // ---------------------------------------------------------------- DOM
+import { setLocalizedText, setLocalizedHTML } from './localized-dom.js';
 export function h(tag, props = null, ...kids) {
   const el = document.createElement(tag);
   if (props) {
@@ -13,8 +14,8 @@ export function h(tag, props = null, ...kids) {
         if (typeof v === 'string') el.style.cssText = v;
         else for (const s in v) { if (s.startsWith('--')) el.style.setProperty(s, v[s]); else el.style[s] = v[s]; }
       } else if (k === 'data') { for (const d in v) el.dataset[d] = v[d]; }
-      else if (k === 'html') el.innerHTML = v;
-      else if (k === 'text') el.textContent = v;
+      else if (k === 'html') { if (typeof v === 'function') setLocalizedHTML(el,v); else el.innerHTML = v; }
+      else if (k === 'text') { if (typeof v === 'function') setLocalizedText(el,v); else el.textContent = v; }
       else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
       else if (v === true) el.setAttribute(k, '');
       else el.setAttribute(k, v);
@@ -27,6 +28,7 @@ function appendKids(el, kids) {
   for (const c of kids) {
     if (c == null || c === false) continue;
     if (Array.isArray(c)) appendKids(el, c);
+    else if (typeof c === 'function') { const node = document.createTextNode(''); setLocalizedText(node,c); el.appendChild(node); }
     else el.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(String(c)) : c);
   }
 }

@@ -1,3 +1,4 @@
+import {translate,formatMessage} from '../i18n/runtime.js';
 // INKWAVE UI — menu art + helpers.
 //   computeAwards(players, { win, percents }) → { byPlayer: [[award…]…], match: [tag…] }
 //   computeBossAwards(players) → same shape for Boss Battle (damage, weak hits, crablets, survival)
@@ -57,24 +58,24 @@ export const awardIcon = (id) => AWARD_ICONS[id] || AWARD_ICONS.star;
 
 // ================================================================================== awards
 export const AWARDS = {
-  mvp: { label: 'MVP', metal: 'gold', icon: 'star', desc: 'Best all-round score on the winning team' },
-  turf: { label: 'TURF KING', metal: 'gold', icon: 'crown', desc: 'Most turf inked in the match' },
-  splats: { label: 'TOP SPLATTER', metal: 'silver', icon: 'splat', desc: 'Most splats in the match' },
-  inker: { label: 'TOP INKER', metal: 'silver', icon: 'roller', desc: 'Most turf inked on their team' },
-  untouchable: { label: 'UNTOUCHABLE', metal: 'bronze', icon: 'shield', desc: 'Never got splatted' },
-  survivor: { label: 'SURVIVOR', metal: 'bronze', icon: 'buoy', desc: 'Splatted the fewest times' },
-  pure: { label: 'PURE PAINTER', metal: 'bronze', icon: 'brush', desc: 'Top-3 turf without splatting anyone' },
+  mvp: { label: 'MVP', metal: 'gold', icon: 'star', get desc() { return translate("Best all-round score on the winning team"); } },
+  turf: { get label() { return translate("TURF KING"); }, metal: 'gold', icon: 'crown', get desc() { return translate("Most turf inked in the match"); } },
+  splats: { get label() { return translate("TOP SPLATTER"); }, metal: 'silver', icon: 'splat', get desc() { return translate("Most splats in the match"); } },
+  inker: { get label() { return translate("TOP INKER"); }, metal: 'silver', icon: 'roller', get desc() { return translate("Most turf inked on their team"); } },
+  untouchable: { get label() { return translate("UNTOUCHABLE"); }, metal: 'bronze', icon: 'shield', get desc() { return translate("Never got splatted"); } },
+  survivor: { get label() { return translate("SURVIVOR"); }, metal: 'bronze', icon: 'buoy', get desc() { return translate("Splatted the fewest times"); } },
+  pure: { get label() { return translate("PURE PAINTER"); }, metal: 'bronze', icon: 'brush', get desc() { return translate("Top-3 turf without splatting anyone"); } },
 };
 const AWARD_ORDER = ['mvp', 'turf', 'splats', 'inker', 'untouchable', 'survivor', 'pure'];
 // boss mode (co-op: one squad, no team split — the MVP is given win or lose)
 export const BOSS_AWARDS = {
-  mvp: { label: 'MVP', metal: 'gold', icon: 'star', desc: 'Best all-round score against HULLBREAKER' },
-  heavy: { label: 'HEAVY HITTER', metal: 'gold', icon: 'pow', desc: 'Dealt the most damage to the boss' },
-  crit: { label: 'SHELL CRACKER', metal: 'silver', icon: 'crit', desc: 'Most weak-point hits' },
-  brood: { label: 'BROOD BUSTER', metal: 'silver', icon: 'splat', desc: 'Popped the most crablets' },
-  unsinkable: { label: 'UNSINKABLE', metal: 'bronze', icon: 'anchor', desc: 'Never got splatted' },
-  survivor: { label: 'SURVIVOR', metal: 'bronze', icon: 'buoy', desc: 'Splatted the fewest times' },
-  cleaner: { label: 'CLEANUP CREW', metal: 'bronze', icon: 'roller', desc: 'Painted over the most boss ink' },
+  mvp: { label: 'MVP', metal: 'gold', icon: 'star', get desc() { return translate("Best all-round score against HULLBREAKER"); } },
+  heavy: { get label() { return translate("HEAVY HITTER"); }, metal: 'gold', icon: 'pow', get desc() { return translate("Dealt the most damage to the boss"); } },
+  crit: { get label() { return translate("SHELL CRACKER"); }, metal: 'silver', icon: 'crit', get desc() { return translate("Most weak-point hits"); } },
+  brood: { get label() { return translate("BROOD BUSTER"); }, metal: 'silver', icon: 'splat', get desc() { return translate("Popped the most crablets"); } },
+  unsinkable: { get label() { return translate("UNSINKABLE"); }, metal: 'bronze', icon: 'anchor', get desc() { return translate("Never got splatted"); } },
+  survivor: { get label() { return translate("SURVIVOR"); }, metal: 'bronze', icon: 'buoy', get desc() { return translate("Splatted the fewest times"); } },
+  cleaner: { get label() { return translate("CLEANUP CREW"); }, metal: 'bronze', icon: 'roller', get desc() { return translate("Painted over the most boss ink"); } },
 };
 const BOSS_ORDER = ['mvp', 'heavy', 'crit', 'brood', 'unsinkable', 'survivor', 'cleaner'];
 /** Boss-mode awards from the final stats: players [{ damage, weakHits, splats, deaths, turf, isSelf }]. */
@@ -86,27 +87,27 @@ export function computeBossAwards(players = []) {
   if (P.length) {
     const md = maxOf('dmg'), mw = maxOf('weak'), ms = maxOf('splats'), mt = maxOf('turf'), mD = Math.max(1, maxOf('deaths'));
     if (md > 0) P.filter((p) => p.dmg === md).forEach((p) => give(p, 'heavy', `${fmtInt(p.dmg)} damage`));
-    if (mw >= 3) P.filter((p) => p.weak === mw).forEach((p) => give(p, 'crit', `${mw} weak-point hits`));
+    if (mw >= 3) P.filter((p) => p.weak === mw).forEach((p) => give(p, 'crit', formatMessage("{0} weak-point hits",[mw])));
     if (ms >= 2) P.filter((p) => p.splats === ms).forEach((p) => give(p, 'brood', `${ms} crablets`));
     if (mt > 0) P.filter((p) => p.turf === mt).forEach((p) => give(p, 'cleaner', `${fmtInt(p.turf)}p inked`));
     const active = P.filter((p) => p.dmg > 0 || p.turf >= 30);
     const zero = active.filter((p) => p.deaths === 0);
-    if (zero.length && zero.length <= 3) zero.forEach((p) => give(p, 'unsinkable', 'Never splatted'));
+    if (zero.length && zero.length <= 3) zero.forEach((p) => give(p, 'unsinkable', translate("Never splatted")));
     else if (!zero.length && active.length) {
       const m = Math.min(...active.map((p) => p.deaths));
       const s = active.filter((p) => p.deaths === m);
-      if (s.length === 1) give(s[0], 'survivor', `Splatted ${m}×`);
+      if (s.length === 1) give(s[0], 'survivor', formatMessage("Splatted {0}×",[m]));
     }
     const score = (p) => p.dmg / Math.max(1, md) + 0.35 * (p.weak / Math.max(1, mw)) + 0.2 * (p.splats / Math.max(1, ms)) + 0.15 * (p.turf / Math.max(1, mt)) - 0.25 * (p.deaths / mD);
     const cand = P.filter((p) => p.dmg > 0 || p.turf > 0);
-    if (cand.length) give(cand.reduce((b, p) => (score(p) > score(b) + 1e-9 ? p : b)), 'mvp', 'Top all-round score');
+    if (cand.length) give(cand.reduce((b, p) => (score(p) > score(b) + 1e-9 ? p : b)), 'mvp', translate("Top all-round score"));
     for (const list of by) list.sort((x, y) => BOSS_ORDER.indexOf(x.id) - BOSS_ORDER.indexOf(y.id));
   }
   return { byPlayer: by, match: [] };
 }
 export const MATCH_TAGS = {
-  close: { id: 'close', label: 'PHOTO FINISH', icon: 'stopwatch' },
-  landslide: { id: 'landslide', label: 'LANDSLIDE', icon: 'wave' },
+  close: { id: 'close', get label() { return translate("PHOTO FINISH"); }, icon: 'stopwatch' },
+  landslide: { id: 'landslide', get label() { return translate("LANDSLIDE"); }, icon: 'wave' },
 };
 
 /**
@@ -136,11 +137,11 @@ export function computeAwards(players = [], { win = true, percents = [50, 50] } 
     // Untouchable (never splatted — only special when few managed it) / Survivor (unique fewest)
     const active = P.filter((p) => p.turf >= 30 || p.splats > 0);
     const zero = active.filter((p) => p.deaths === 0);
-    if (zero.length && zero.length <= 3) zero.forEach((p) => give(p, 'untouchable', 'Never splatted'));
+    if (zero.length && zero.length <= 3) zero.forEach((p) => give(p, 'untouchable', translate("Never splatted")));
     else if (!zero.length && active.length) {
       const md = Math.min(...active.map((p) => p.deaths));
       const s = active.filter((p) => p.deaths === md);
-      if (s.length === 1) give(s[0], 'survivor', `Splatted ${md}×`);
+      if (s.length === 1) give(s[0], 'survivor', formatMessage("Splatted {0}×",[md]));
     }
     // Pure Painter — top-3 turf with zero splats
     [...P].sort((a, b) => b.turf - a.turf).slice(0, 3).filter((p) => p.splats === 0 && p.turf > 0).forEach((p) => give(p, 'pure', `${fmtInt(p.turf)}p · 0 splats`));
@@ -153,7 +154,7 @@ export function computeAwards(players = [], { win = true, percents = [50, 50] } 
     const winners = P.filter((p) => p.team === wt && (p.turf > 0 || p.splats > 0));
     if (winners.length) {
       const best = winners.reduce((b, p) => (score(p) > score(b) + 1e-9 || (Math.abs(score(p) - score(b)) < 1e-9 && p.turf > b.turf) ? p : b));
-      give(best, 'mvp', 'Top all-round score');
+      give(best, 'mvp', translate("Top all-round score"));
     }
     for (const list of by) list.sort((x, y) => AWARD_ORDER.indexOf(x.id) - AWARD_ORDER.indexOf(y.id));
   }
@@ -184,11 +185,11 @@ export function awardBadge(aw) {
 
 // ================================================================================== ranks
 export const RANK_TIERS = [
-  { lv: 1, name: 'Fresh Recruit', cls: 'is-t0' },
-  { lv: 5, name: 'Turf Scrapper', cls: 'is-t1' },
-  { lv: 10, name: 'Ink Slinger', cls: 'is-t2' },
-  { lv: 20, name: 'Splat Veteran', cls: 'is-t3' },
-  { lv: 30, name: 'Tide Legend', cls: 'is-t4' },
+  { lv: 1, get name() { return translate("Fresh Recruit"); }, cls: 'is-t0' },
+  { lv: 5, get name() { return translate("Turf Scrapper"); }, cls: 'is-t1' },
+  { lv: 10, get name() { return translate("Ink Slinger"); }, cls: 'is-t2' },
+  { lv: 20, get name() { return translate("Splat Veteran"); }, cls: 'is-t3' },
+  { lv: 30, get name() { return translate("Tide Legend"); }, cls: 'is-t4' },
 ];
 export const rankTier = (level) => RANK_TIERS.reduce((acc, r, i) => (level >= r.lv ? i : acc), 0);
 /** Shield emblem with one pip per tier (tier 0..4). Colour via CSS (--rk). */
@@ -556,8 +557,8 @@ function previewLook(ctx, pad) {
   let v = +ctx.value || 1, ph = 0, shown = v;
   const set = (nv) => {
     v = +nv || 1;
-    if (pad) stat.innerHTML = `Full-stick 360° turn in <b>${(TAU / (PAD_YAW_RATE * v)).toFixed(2)} s</b>`;
-    else stat.innerHTML = `<b>${fmtInt(TAU / (MOUSE_RAD_PER_PX * v))} px</b> of mouse travel per 360° turn`;
+    if (pad) stat.innerHTML = formatMessage("Full-stick 360° turn in <b>{0} s</b>",[(TAU / (PAD_YAW_RATE * v)).toFixed(2)]);
+    else stat.innerHTML = formatMessage("<b>{0} px</b> of mouse travel per 360° turn",[fmtInt(TAU / (MOUSE_RAD_PER_PX * v))]);
   };
   set(v);
   return {
@@ -582,7 +583,7 @@ function previewInvert(ctx) {
       <g transform="translate(160 90)"><circle r="11" fill="none" stroke="#fff" stroke-width="4"/><circle r="11" fill="none" stroke="${K}" stroke-width="1.5"/><circle r="2.6" fill="#fff" stroke="${K}" stroke-width="1.2"/></g>`, 'iw-pv-inv__screen')}
     <div class="iw-pv-cap"></div>` });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Push up <b>→ look DOWN</b>' : 'Push up <b>→ look UP</b>'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? translate("Push up <b>→ look DOWN</b>") : translate("Push up <b>→ look UP</b>"); };
   set(ctx.value);
   return { el, set };
 }
@@ -616,7 +617,7 @@ function previewFov(ctx) {
     wedgeEl.setAttribute('d', wedge(cur));
     let n = 0;
     tEls.forEach((g, i) => { const inside = Math.abs(T[i][0]) <= cur / 2 && T[i][1] <= R; g.classList.toggle('is-in', inside); if (inside) n++; });
-    if (n !== lastN) { lastN = n; cap.innerHTML = `<b>${n} of ${T.length}</b> squidkids in view`; }
+    if (n !== lastN) { lastN = n; cap.innerHTML = formatMessage("<b>{0} of {1}</b> squidkids in view",[n,T.length]); }
   };
   apply();
   return {
@@ -627,7 +628,7 @@ function previewFov(ctx) {
 }
 
 function previewQuality(ctx) {
-  const tiers = [['low', 'LOW'], ['medium', 'MED'], ['high', 'HIGH'], ['ultra', 'ULTRA']];
+  const tiers = [['low', translate("LOW")], ['medium', translate("MED")], ['high', translate("HIGH")], ['ultra', translate("ULTRA")]];
   const ladder = h('div', { class: 'iw-pv-ladder' }, tiers.map(([id, lab], i) => h('span', { class: 'iw-pv-ladder__col', 'data-q': id, style: { '--h': (0.3 + i * 0.233).toFixed(3) } }, h('i'), h('b', null, lab))));
   const chips = h('div', { class: 'iw-pv-chips' });
   const el = h('div', { class: 'iw-pv iw-pv--quality' }, ladder, chips);
@@ -636,12 +637,12 @@ function previewQuality(ctx) {
     const q = Q[v] || Q.high || {};
     ladder.querySelectorAll('.iw-pv-ladder__col').forEach((c) => c.classList.toggle('is-on', c.dataset.q === v));
     const rows = [
-      ['Pixel density', `up to ${(+q.pixelRatio || 1).toFixed(q.pixelRatio % 1 ? 2 : 1).replace(/0$/, '')}×`],
-      ['Shadow map', `${q.shadowSize || 0}px`],
-      ['Anti-aliasing', q.msaa ? `${q.msaa}× MSAA` : 'Off'],
-      ['Ink detail', `${Math.round((q.paintAtlas || 2048) / 1024)}K atlas`],
-      ['Ambient occlusion', q.ao ? 'On' : 'Off'],
-      ['Particles', `${Math.round((q.particles ?? 1) * 100)}%`],
+      [translate("Pixel density"), formatMessage("up to {0}×",[(+q.pixelRatio || 1).toFixed(q.pixelRatio % 1 ? 2 : 1).replace(/0$/, '')])],
+      [translate("Shadow map"), `${q.shadowSize || 0}px`],
+      [translate("Anti-aliasing"), q.msaa ? `${q.msaa}× MSAA` : translate("Off")],
+      [translate("Ink detail"), `${Math.round((q.paintAtlas || 2048) / 1024)}K atlas`],
+      [translate("Ambient occlusion"), q.ao ? translate("On") : translate("Off")],
+      [translate("Particles"), `${Math.round((q.particles ?? 1) * 100)}%`],
     ];
     chips.innerHTML = '';
     rows.forEach(([k, val], i) => chips.appendChild(h('span', { class: 'iw-pv-chip' + (/Off|0%/.test(val) ? ' is-off' : ''), style: { '--i': i } }, h('small', null, k), h('b', null, val))));
@@ -659,7 +660,7 @@ function previewShadows(ctx) {
     <g transform="translate(160 74) scale(.5)" style="color:var(--a)">${SQUID.replace('class="iw-ico iw-squid"', 'x="0" y="0" width="64" height="64"')}</g>
     <path class="iw-fa" d="M60 150 q20 -9 40 0 q10 6 -6 12 q-20 7 -34 -2 q-8 -6 0 -10z"/>`) + '<div class="iw-pv-cap"></div>' });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Soft sun shadows <b>ON</b>' : 'Shadows <b>OFF</b> — faster on older machines'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? translate("Soft sun shadows <b>ON</b>") : translate("Shadows <b>OFF</b> — faster on older machines"); };
   set(ctx.value);
   return { el, set };
 }
@@ -675,7 +676,7 @@ function previewBloom(ctx) {
       <g transform="translate(136 66) scale(.75)" style="color:#fff">${SPECIAL_ICONS.slam.replace('class="iw-ico "', 'x="0" y="0" width="64" height="64"')}</g>
       <rect x="1" y="1" width="318" height="178" rx="14" fill="none" stroke="${K}" stroke-width="3"/></svg><div class="iw-pv-cap"></div>` });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Bright ink and specials <b>glow</b>' : 'Glow <b>OFF</b>'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? translate("Bright ink and specials <b>glow</b>") : translate("Glow <b>OFF</b>"); };
   set(ctx.value);
   return { el, set };
 }
@@ -690,7 +691,7 @@ function hudFrame(inner) {
 function previewFps(ctx) {
   const el = h('div', { class: 'iw-pv iw-pv--fps', html: hudFrame(`<g class="iw-pv-pop"><rect x="12" y="10" width="58" height="18" rx="6" fill="${K}"/><text x="41" y="23" text-anchor="middle" font-family="Rubik, sans-serif" font-weight="800" font-size="10.5" fill="#7dffa8">60 FPS</text></g>`) + '<div class="iw-pv-cap"></div>' });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Frame counter <b>shown</b> in matches' : 'Frame counter <b>hidden</b>'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? translate("Frame counter <b>shown</b> in matches") : translate("Frame counter <b>hidden</b>"); };
   set(ctx.value);
   return { el, set };
 }
@@ -699,7 +700,7 @@ function previewMinimap(ctx) {
       <path class="iw-fa" d="M238 118 q10 -6 20 0 q6 5 -4 10 q-10 4 -16 -2z M244 140 q9 -5 16 2 q4 6 -6 8 q-9 1 -10 -10z"/><path class="iw-fb" d="M280 112 q9 -4 16 2 q4 6 -6 9 q-9 2 -10 -11z M276 140 q10 -6 20 1 q5 6 -6 10 q-11 2 -14 -11z"/>
       <circle cx="252" cy="132" r="4" fill="#fff" stroke="${K}" stroke-width="2"/></g>`) + '<div class="iw-pv-cap"></div>' });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Turf minimap <b>in the corner</b>' : 'Minimap <b>hidden</b> — hold TAB for the big map'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? translate("Turf minimap <b>in the corner</b>") : translate("Minimap <b>hidden</b> — hold TAB for the big map"); };
   set(ctx.value);
   return { el, set };
 }
@@ -710,7 +711,7 @@ function previewShake(ctx) {
   const boom = el.querySelector('.iw-pv-boom');
   const cap = el.querySelector('.iw-pv-cap');
   let v = +ctx.value, t = 0.6;
-  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0 ? 'Screen shake <b>OFF</b>' : `Shake strength <b>${Math.round(v * 100)}%</b>`; };
+  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0 ? translate("Screen shake <b>OFF</b>") : formatMessage("Shake strength <b>{0}%</b>",[Math.round(v * 100)]); };
   set(v);
   return {
     el, set,
@@ -742,7 +743,7 @@ function previewAudio(ctx, key) {
   const set = (nv, ss) => {
     v = clamp(+nv || 0); if (ss) s = ss;
     const e = eff();
-    cap.innerHTML = key === 'master' ? `Overall output <b>${Math.round(v * 100)}%</b>` : `Heard at <b>${Math.round(e * 100)}%</b> after master volume`;
+    cap.innerHTML = key === 'master' ? formatMessage("Overall output <b>{0}%</b>",[Math.round(v * 100)]) : formatMessage("Heard at <b>{0}%</b> after master volume",[Math.round(e * 100)]);
     el.classList.toggle('is-mute', e <= 0.001);
   };
   set(v);
@@ -773,7 +774,7 @@ function previewAimAssist(ctx) {
       <path d="M0 -21 V-15 M0 21 V15 M-21 0 H-15 M21 0 H15" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></g>`) + '<div class="iw-pv-cap"></div>' });
   const xEl = el.querySelector('.iw-pv-aim__x'), trail = el.querySelector('.iw-pv-aim__trail'), cap = el.querySelector('.iw-pv-cap');
   let v = clamp(+ctx.value || 0), t = 0;
-  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0.001 ? 'Aim assist <b>OFF</b>' : `Pull strength <b>${Math.round(v * 100)}%</b>`; };
+  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0.001 ? translate("Aim assist <b>OFF</b>") : formatMessage("Pull strength <b>{0}%</b>",[Math.round(v * 100)]); };
   set(v);
   return {
     el, set,
@@ -792,7 +793,7 @@ function previewAimAssist(ctx) {
 function previewAimMouse(ctx) {
   const el = h('div', { class: 'iw-pv iw-pv--aimm', html: `<div class="iw-pv-aimm__row"><span class="iw-pv-aimm__dev is-pad">${GLYPHS.gamepad}<b>ASSIST</b></span><span class="iw-pv-aimm__dev is-mouse">${mouseGlyph('M')}<b>ASSIST</b></span></div><div class="iw-pv-cap"></div>` });
   const cap = el.querySelector('.iw-pv-cap');
-  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? 'Assist on <b>controller and mouse</b> (lighter on mouse)' : 'Assist on <b>controller only</b>'; };
+  const set = (v) => { el.classList.toggle('is-on', !!v); cap.innerHTML = v ? translate("Assist on <b>controller and mouse</b> (lighter on mouse)") : translate("Assist on <b>controller only</b>"); };
   set(ctx.value);
   return { el, set };
 }
@@ -801,7 +802,7 @@ function previewRumble(ctx) {
   const el = h('div', { class: 'iw-pv iw-pv--rumble', html: `<div class="iw-pv-rumble__pad">${GLYPHS.gamepad}<i class="l"></i><i class="r"></i></div><div class="iw-pv-cap"></div>` });
   const pad = el.querySelector('.iw-pv-rumble__pad'), cap = el.querySelector('.iw-pv-cap');
   let v = clamp(+ctx.value || 0), t = 0.4;
-  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0 ? 'Vibration <b>OFF</b>' : `Rumble strength <b>${Math.round(v * 100)}%</b>`; el.classList.toggle('is-off', v <= 0); };
+  const set = (nv) => { v = clamp(+nv || 0); cap.innerHTML = v <= 0 ? translate("Vibration <b>OFF</b>") : formatMessage("Rumble strength <b>{0}%</b>",[Math.round(v * 100)]); el.classList.toggle('is-off', v <= 0); };
   set(v);
   return {
     el, set,
@@ -825,7 +826,7 @@ function previewColorblind(ctx) {
   const pair = (a, b) => `<span class="iw-pv-pair"><i style="background:${a}"></i><i style="background:${b}"></i></span>`;
   const el = h('div', { class: 'iw-pv iw-pv--cb', html: `
     <div class="iw-pv-pal iw-pv-pal--std"><small>STANDARD INKS · rotate each match</small><div class="iw-pv-pal__row">${pals.map((p) => pair(p.a, p.b)).join('')}</div><i class="iw-pv-pal__check">${GLYPHS.check}</i></div>
-    <div class="iw-pv-pal iw-pv-pal--cb"><small>COLORBLIND-SAFE · always</small><div class="iw-pv-pal__row">${pair(cb.a, cb.b)}<span class="iw-pv-pal__name">${(cb.names || ['Sun', 'Sea']).join(' vs ')}</span></div><i class="iw-pv-pal__check">${GLYPHS.check}</i></div>` });
+    <div class="iw-pv-pal iw-pv-pal--cb"><small>COLORBLIND-SAFE · always</small><div class="iw-pv-pal__row">${pair(cb.a, cb.b)}<span class="iw-pv-pal__name">${(cb.names || [translate("Sun"), translate("Sea")]).join(' vs ')}</span></div><i class="iw-pv-pal__check">${GLYPHS.check}</i></div>` });
   const set = (v) => el.classList.toggle('is-on', !!v);
   set(ctx.value);
   return { el, set };
@@ -885,6 +886,12 @@ function previewReset() {
 /** ctx: { value, settings, qualityTable, palettes, cbPalette, diffs, diffInfo, durations, tab } */
 export function createPreview(key, ctx = {}) {
   switch (key) {
+    case 'language': {
+      const el = h('div', {class:'iw-pv iw-pv--language'},
+        h('div',{class:'iw-pv-language__sample'},translate('Ready to ink?')),
+        h('div',{class:'iw-pv-cap'},translate('Your game keeps running.')));
+      return {el, set() {}};
+    }
     case 'sensitivity': return previewLook(ctx, false);
     case 'padSensitivity': return previewLook(ctx, true);
     case 'invertY': return previewInvert(ctx);

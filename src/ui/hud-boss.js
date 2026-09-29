@@ -1,3 +1,6 @@
+import {setLocalizedText,setLocalizedHTML,refreshLocalized} from './localized-dom.js';
+import {onLanguageChanged} from '../i18n/runtime.js';
+import {translate,formatMessage} from '../i18n/runtime.js';
 // INKWAVE — boss-mode HUD layer (docs/BOSS.md "UI"). The HUD owns one: `hud.boss = new BossHud(hud)`.
 //   Boss bar (top centre, under the timer): emblem, name tape, phase pips, HP with 66 / 33 % notches, white chip-away
 //   trail, damage + weak-point flashes, OPEN! stun state with a draining stun meter, phase-change shield, phase-3 enrage.
@@ -16,8 +19,8 @@ import { BOSS_NAME, BOSS_EPITHET, MOVE_ICONS, MOVE_LABELS, bossEmblem } from './
 const NOTCHES = [2 / 3, 1 / 3];
 const CALL_MOVES = new Set(['slam', 'barrage', 'sweep', 'charge', 'crablets', 'frenzy']);
 const PHASE_TXT = {
-  2: { big: 'PHASE 2!', sub: 'Crablets incoming — pop them fast!' },
-  3: { big: 'SHELL CRACKED!', sub: 'Final phase · hit the glowing belly!' },
+  2: { get big() { return translate("PHASE 2!"); }, get sub() { return translate("Crablets incoming — pop them fast!"); } },
+  3: { get big() { return translate("SHELL CRACKED!"); }, get sub() { return translate("Final phase · hit the glowing belly!"); } },
 };
 const V3 = () => ({ x: 0, y: 0, z: 0 });
 
@@ -31,6 +34,7 @@ export class BossHud {
     this._tmp = { x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; return this; }, copy(v) { this.x = v.x; this.y = v.y; this.z = v.z; return this; } };
     this._build();
     this._unsubs = [
+      onLanguageChanged(() => { refreshLocalized(this.layer); refreshLocalized(this.over); }),
       on('boss:spawn', (e) => this._spawn(e && e.boss)),
       on('boss:intro', (e) => this._intro(e || {})),
       on('boss:hp', (e) => this._hp(e || {})),
@@ -71,13 +75,13 @@ export class BossHud {
       h('div', { class: 'iw-bb__plate' },
         h('div', { class: 'iw-bb__head' },
           h('span', { class: 'iw-bb__name iw-display' }, BOSS_NAME),
-          h('span', { class: 'iw-bb__rage' }, 'ENRAGED'),
+          h('span', { class: 'iw-bb__rage' }, () => translate("ENRAGED")),
           h('span', { class: 'iw-bb__grow' }),
-          h('span', { class: 'iw-bb__phase' }, h('small', null, 'PHASE'), this.pips)),
+          h('span', { class: 'iw-bb__phase' }, h('small', null, () => translate("PHASE")), this.pips)),
         this.track,
         h('div', { class: 'iw-bb__stun' }, this.stunBar)),
       h('div', { class: 'iw-bb__pct' }, this.pctEl, h('small', null, '%')),
-      h('div', { class: 'iw-bb__open' }, h('i', { html: MOVE_ICONS.open }), h('span', { class: 'iw-display' }, 'OPEN!')));
+      h('div', { class: 'iw-bb__open' }, h('i', { html: MOVE_ICONS.open }), h('span', { class: 'iw-display' }, () => translate("OPEN!"))));
 
     // ---- move callout (one reusable pill that follows the boss on screen)
     this.callIcon = h('i', { class: 'iw-bmv__icon' });
@@ -211,7 +215,7 @@ export class BossHud {
     if (crab) { if (mine) { this.hud._lastHitDmg = damage; this.hud.hitMarker('hit'); } return; }   // crablets: just the reticle tick
     if (blocked) {
       // invulnerable beat (phase change / intro): a grey IMMUNE pop instead of numbers
-      if (mine && now - (S.immT || -9) > 0.6) { S.immT = now; const w = V3(); if (pos && Number.isFinite(pos.x)) { w.x = pos.x; w.y = pos.y; w.z = pos.z; } else if (!this._anchor('shellTop', -1, w)) return; this._crit(w, 'IMMUNE'); }
+      if (mine && now - (S.immT || -9) > 0.6) { S.immT = now; const w = V3(); if (pos && Number.isFinite(pos.x)) { w.x = pos.x; w.y = pos.y; w.z = pos.z; } else if (!this._anchor('shellTop', -1, w)) return; this._crit(w, translate("IMMUNE")); }
       return;
     }
     if (weak && now - S.weakT > 0.12) { S.weakT = now; restartAnim(this.bar, 'is-weak'); restartAnim(this.emb, 'is-weak'); }
@@ -276,8 +280,8 @@ export class BossHud {
 
   /** Contextual prompt: the turf tutorial line becomes a boss one; OPEN! gets its own nudge. */
   prompt(p) {
-    if (this.S.openT > 0.4 && !this.S.dead) return 'It\u2019s OPEN \u2014 unload on it!';
-    if (p && /turf wins/i.test(p)) return this.S.phase >= 3 ? 'Shell cracked \u2014 hit the glowing belly!' : 'Shoot HULLBREAKER \u2014 its glowing eyes take extra damage!';
+    if (this.S.openT > 0.4 && !this.S.dead) return translate("It’s OPEN — unload on it!");
+    if (p && /turf wins/i.test(p)) return this.S.phase >= 3 ? translate("Shell cracked — hit the glowing belly!") : translate("Shoot HULLBREAKER — its glowing eyes take extra damage!");
     return p;
   }
 
@@ -416,7 +420,7 @@ export class BossHud {
     c.el.style.setProperty('--s', clamp(0.85 + Math.log10(Math.max(1, c.sum)) * 0.16 + (c.weak ? 0.2 : 0), 0.85, 1.6).toFixed(3));
     restartAnim(c.el, 'is-bump');
   }
-  _crit(w, txt = 'CRIT!') {
+  _crit(w, txt = translate("CRIT!")) {
     const p = this._screen(w, { x: 0, y: 0 });
     if (!p || p.behind) return;
     const el = h('div', { class: 'iw-bcrit' + (txt === 'CRIT!' ? '' : ' is-immune') }, h('i', { class: 'iw-bcrit__burst' }), h('span', { class: 'iw-display' }, txt));
@@ -451,9 +455,9 @@ export class BossHud {
         h('span', { class: 'iw-btc__splat b', html: splatSVG({ seed: 23, fill: 'var(--boss)', r: 56, arms: 9, drops: 5 }) })),
       h('div', { class: 'iw-btc__emb', html: bossEmblem() }),
       h('div', { class: 'iw-btc__txt' },
-        h('div', { class: 'iw-btc__tags' }, h('div', { class: 'iw-btc__tag' }, h('i', { html: GLYPHS.swords }), 'BOSS BATTLE'), h('span', { class: 'iw-beta iw-btc__beta' }, 'PUBLIC BETA')),
+        h('div', { class: 'iw-btc__tags' }, h('div', { class: 'iw-btc__tag' }, h('i', { html: GLYPHS.swords }), () => translate("BOSS BATTLE")), h('span', { class: 'iw-beta iw-btc__beta' }, () => translate("PUBLIC BETA"))),
         h('div', { class: 'iw-btc__name iw-display' }, letters),
-        h('div', { class: 'iw-btc__epi' }, BOSS_EPITHET.toUpperCase())));
+        h('div', { class: 'iw-btc__epi' }, () => translate(BOSS_EPITHET).toUpperCase())));
     el.addEventListener('animationend', (e) => { if (e.target === el) el.remove(); });
     setTimeout(() => el.remove(), 3200);
     this.over.appendChild(el);
@@ -478,14 +482,14 @@ export class BossHud {
     this.over.querySelectorAll('.iw-bph, .iw-btc').forEach((e) => e.remove());
     this.hud.bannerLayer.querySelectorAll('.iw-bn').forEach((b) => b.remove());
     const drops = Array.from({ length: 14 }, (_, i) => h('i', { class: 'iw-bend__drop', style: { '--a': `${i * (360 / 14) + Math.random() * 14}deg`, '--d': `${0.9 + Math.random() * 0.8}`, '--s': `${0.5 + Math.random() * 0.9}` } }));
-    const word = win ? 'SUNK!' : "TIME'S UP!";
+    const word = win ? translate("SUNK!") : translate("TIME'S UP!");
     const el = h('div', { class: 'iw-bend ' + (win ? 'is-win' : 'is-lose') },
       h('div', { class: 'iw-bend__burst' }, drops),
       h('div', { class: 'iw-bend__splat b', html: splatSVG({ seed: win ? 12 : 8, fill: win ? 'var(--boss)' : 'var(--self)', r: 60, arms: 10, drops: 6 }) }),
       h('div', { class: 'iw-bend__splat', html: splatSVG({ seed: win ? 5 : 19, fill: win ? 'var(--self)' : 'var(--boss)', r: 60, arms: 11, drops: 8 }) }),
       h('div', { class: 'iw-bend__emb', html: bossEmblem({ cracked: win }) }),
       h('div', { class: 'iw-bend__txt' },
-        h('small', { class: 'iw-bend__who' }, win ? BOSS_NAME : 'HULLBREAKER GOT AWAY…'),
+        h('small', { class: 'iw-bend__who' }, () => win ? BOSS_NAME : translate("HULLBREAKER GOT AWAY…")),
         h('div', { class: 'iw-bend__word iw-display' }, [...word].map((c, i) => h('span', { style: { '--i': i } }, c === ' ' ? ' ' : c)))));
     el.addEventListener('animationend', (e) => { if (e.target === el) el.remove(); });
     setTimeout(() => el.remove(), 5200);

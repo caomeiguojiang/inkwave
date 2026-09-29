@@ -24,5 +24,6 @@ for f in seen:
 os.makedirs('dist/vendor/three/build', exist_ok=True)
 for f in ['three.module.js', 'three.core.js']: shutil.copy('vendor/three/build/' + f, 'dist/vendor/three/build/' + f)
 for d in ['src', 'styles', 'assets']: shutil.copytree(d, 'dist/' + d)
+shutil.copytree('vendor/i18next', 'dist/vendor/i18next')
 shutil.copy('index.html', 'dist/index.html')
 print('dist ready:', len(seen), 'addon files')

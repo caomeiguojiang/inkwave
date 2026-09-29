@@ -1,3 +1,6 @@
+import {setLocalizedText,setLocalizedHTML,refreshLocalized} from './localized-dom.js';
+import {onLanguageChanged} from '../i18n/runtime.js';
+import {translate,formatMessage} from '../i18n/runtime.js';
 // INKWAVE — in-match HUD (contract: docs/CONTRACTS.md §3).
 //   const hud = new HUD(rootEl [, { playSound }]);
 //   hud.setVisible(bool) · hud.update(dt, HudFrame) · hud.banner(kind, text) · hud.countdown(n)
@@ -36,7 +39,7 @@ const BUMP = { duration: 320, easing: 'cubic-bezier(.34,1.8,.64,1)' };
 const TWIN_KICK = [{ transform: 'scale(1.55)', strokeWidth: '2.6px' }, { transform: 'scale(1)', strokeWidth: '1.8px' }];
 const TWIN_KICK_T = { duration: 130, easing: 'cubic-bezier(.2,.8,.3,1)' };
 const TAU = Math.PI * 2;
-const STREAKS = { 2: 'DOUBLE SPLAT!', 3: 'TRIPLE SPLAT!', 4: 'QUAD SPLAT!' };
+const STREAKS = { get 2() { return translate("DOUBLE SPLAT!"); }, get 3() { return translate("TRIPLE SPLAT!"); }, get 4() { return translate("QUAD SPLAT!"); } };
 const kindOf = (w) => (WEAPONS[w] && WEAPONS[w].kind) || w || 'shooter';
 
 // ------------------------------------------------------------------ HUD-only art
@@ -74,6 +77,11 @@ export class HUD {
     this._tank = { level: 1, slosh: 0, sloshV: 0, wobble: 0, bubbles: [], prevInk: 1, prevYaw: null, prevVx: 0, prevVz: 0, empty: 0, t: 0 };
     this._map = { cx: 0.5, cy: 0.5, hover: -1, open: false, pressed: -1, pressT: 0 };
     this._build();
+    this._offLanguage = onLanguageChanged(() => {
+      this._L = {};
+      refreshLocalized(this.el);
+      refreshLocalized(this.overLayer);
+    });
     this._fxLoop = this._fxLoop.bind(this);
     this._lastFx = 0;
     this._rafId = 0;
@@ -134,7 +142,7 @@ export class HUD {
       h('i', { class: 'iw-sp__ring' }),
       h('span', { class: 'iw-sp__icon' }),
       h('span', { class: 'iw-sp__pct' }),
-      h('div', { class: 'iw-sp__ready' }, h('span', null, 'READY!'), h('span', { html: keycap('F') })));
+      h('div', { class: 'iw-sp__ready' }, h('span', null, () => translate("READY!")), h('span', { html: keycap('F') })));
     this.spLiquid = this.sp.querySelector('.iw-sp__liquid');
     this.spIcon = this.sp.querySelector('.iw-sp__icon');
     this.spPct = this.sp.querySelector('.iw-sp__pct');
@@ -150,7 +158,7 @@ export class HUD {
     this.subChip = h('div', { class: 'iw-subaim' }, h('i', { html: SUB_ICONS.bomb }), h('span', { class: 'iw-subaim__bar' }, h('i')), h('b', null, `${Math.round(SUB.bomb.inkCost)}%`));
     this.tankCanvas = h('canvas', { class: 'iw-tank__cv' });
     this.tankCtx = this.tankCanvas.getContext('2d');
-    this.tank = h('div', { class: 'iw-tank' }, this.tankCanvas, h('div', { class: 'iw-tank__low' }, 'LOW INK'));
+    this.tank = h('div', { class: 'iw-tank' }, this.tankCanvas, h('div', { class: 'iw-tank__low' }, () => translate("LOW INK")));
     this.tpops = h('div', { class: 'iw-tpops' });
     this.xh = h('div', { class: 'iw-xh' }, this.shield, this.ret, this.hitEl, this.killEl, this.tank, this.subChip, this.tpops);
     this.ddLayer = h('div', { class: 'iw-dds' });
@@ -160,14 +168,14 @@ export class HUD {
     const arrow = '<svg class="iw-mdot__arrow" viewBox="-13 -15 26 30" aria-hidden="true"><path class="o" d="M0 -11 L9 11 L0 5.5 L-9 11 Z"/><path class="i" d="M0 -11 L9 11 L0 5.5 L-9 11 Z"/></svg>';
     this.mapDots = Array.from({ length: 8 }, () => h('i', { class: 'iw-mdot', html: '<b></b>' + arrow }));
     this.mapFrame = h('div', { class: 'iw-map__frame' }, this.mapSlot, h('div', { class: 'iw-map__dots' }, this.mapDots), h('i', { class: 'iw-map__gloss' }));
-    this.mapLabel = h('div', { class: 'iw-map__label' }, h('span', { html: keycap('TAB') }), h('span', null, 'MAP'));
+    this.mapLabel = h('div', { class: 'iw-map__label' }, h('span', { html: keycap('TAB') }), h('span', null, () => translate("MAP")));
     this.beacons = Array.from({ length: 4 }, (_, i) => {
       const b = h('div', { class: 'iw-bcn' + (i === 3 ? ' iw-bcn--home' : '') },
         h('span', { class: 'iw-bcn__stem' }, h('i')),
         h('span', { class: 'iw-bcn__pulse' }),
         h('span', { class: 'iw-bcn__disc' }, h('span', { class: 'iw-bcn__icon', html: i === 3 ? SPAWN_ICON : '' })),
         h('span', { class: 'iw-bcn__key' }, String(i + 1)),
-        h('span', { class: 'iw-bcn__label' }, h('small', null, 'SUPER JUMP'), h('b', null, i === 3 ? 'Base' : '')));
+        h('span', { class: 'iw-bcn__label' }, h('small', null, () => translate("SUPER JUMP")), h('b', null, () => i === 3 ? translate("Base") : '')));
       b.addEventListener('pointerenter', () => { if (this._map.open) this._map.hover = i; });
       b.addEventListener('pointerleave', () => { if (this._map.hover === i) this._map.hover = -1; });
       b.addEventListener('click', (e) => { e.stopPropagation(); this._jumpTo(i); });
@@ -179,7 +187,7 @@ export class HUD {
       const row = h('div', { class: 'iw-lg__row' + (i === 3 ? ' is-home' : '') },
         h('span', { class: 'iw-lg__key', html: keycap(String(i + 1)) }),
         h('span', { class: 'iw-lg__w', html: i === 3 ? SPAWN_ICON : '' }),
-        h('span', { class: 'iw-lg__name' }, i === 3 ? 'Base' : '—'),
+        h('span', { class: 'iw-lg__name' }, () => i === 3 ? translate("Base") : '—'),
         h('span', { class: 'iw-lg__st' }));
       row.addEventListener('pointerenter', () => { if (this._map.open) this._map.hover = i; });
       row.addEventListener('pointerleave', () => { if (this._map.hover === i) this._map.hover = -1; });
@@ -187,10 +195,10 @@ export class HUD {
       return row;
     });
     this.mapLegend = h('div', { class: 'iw-map__legend' },
-      h('div', { class: 'iw-lg__title iw-display' }, 'SUPER JUMP'),
-      h('div', { class: 'iw-lg__sub' }, 'Pick a landing spot'),
+      h('div', { class: 'iw-lg__title iw-display' }, () => translate("SUPER JUMP")),
+      h('div', { class: 'iw-lg__sub' }, () => translate("Pick a landing spot")),
       h('div', { class: 'iw-lg__rows' }, this.legendRows),
-      h('div', { class: 'iw-lg__foot', html: richText('Press [1] – [4] or click · release [TAB] to cancel') }));
+      h('div', { class: 'iw-lg__foot', html: () => richText(translate("Press [1] – [4] or click · release [TAB] to cancel")) }));
     this.map = h('div', { class: 'iw-map' }, this.mapFrame, this.mapJumpLine, h('div', { class: 'iw-map__bcns' }, this.beacons), this.mapCursor, this.mapLabel, this.mapLegend);
     this.mapDim = h('div', { class: 'iw-map-dim' });
     this._mapT = 0; this._mapV = 0;
@@ -266,7 +274,7 @@ export class HUD {
   banner(kind = 'custom', text) {
     if (kind === 'timesup' && this.boss.timesUp()) { this.el.classList.remove('is-live'); return; }
     const k = ['ready', 'go', 'one_minute', 'timesup', 'special', 'custom'].includes(kind) ? kind : 'custom';
-    const defaults = { ready: 'READY?', go: 'GO!', one_minute: '1 minute left!', timesup: "TIME'S UP!", special: 'SPECIAL!', custom: '' };
+    const defaults = { ready: translate("READY?"), go: translate("GO!"), one_minute: '1 minute left!', timesup: translate("TIME'S UP!"), special: translate("SPECIAL!"), custom: '' };
     const label = text != null && text !== '' ? String(text) : defaults[k];
     const group = k === 'one_minute' ? 'side' : k === 'special' ? 'low' : 'center';
     this.bannerLayer.querySelectorAll(`.iw-bn[data-g="${group}"]`).forEach((b) => b.remove());
@@ -354,7 +362,7 @@ export class HUD {
     this.hideSplatted(true);
     const C = 2 * Math.PI * 44;
     const num = h('b', { class: 'iw-spl__num' }, String(Math.ceil(respawn)));
-    const ring = h('div', { class: 'iw-spl__ring', html: `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" class="bg"/><circle cx="50" cy="50" r="44" class="fg" style="stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${C.toFixed(1)};animation-duration:${Math.max(0.1, respawn)}s"/></svg>` }, num, h('small', null, 'RESPAWN'));
+    const ring = h('div', { class: 'iw-spl__ring', html: `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="44" class="bg"/><circle cx="50" cy="50" r="44" class="fg" style="stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${C.toFixed(1)};animation-duration:${Math.max(0.1, respawn)}s"/></svg>` }, num, h('small', null, () => translate("RESPAWN")));
     const tint = h('div', { class: 'iw-spl__tint' });
     this.el.prepend(tint);
     const killer = this._kills.lastKiller;
@@ -364,11 +372,11 @@ export class HUD {
         h('div', { class: 'iw-spl__splat', html: splatSVG({ seed: 64, cls: 'iw-fby', r: 62, arms: 11, drops: 5, viewBox: 240 }) }),
         kw,
         h('div', { class: 'iw-spl__text' },
-          h('div', { class: 'iw-spl__by' }, by ? 'SPLATTED BY' : 'SPLATTED!'),
+          h('div', { class: 'iw-spl__by' }, () => by ? translate("SPLATTED BY") : translate("SPLATTED!")),
           by ? h('div', { class: 'iw-spl__name iw-display' }, String(by)) : null,
           killer && killer.weaponId ? h('div', { class: 'iw-spl__wn' }, (WEAPONS[killer.weaponId] || {}).name || '') : null),
         ring),
-      h('div', { class: 'iw-spl__hint', html: richText('Hold [TAB] to plan a Super Jump') }));
+      h('div', { class: 'iw-spl__hint', html: () => richText(translate("Hold [TAB] to plan a Super Jump")) }));
     colorVars(el, 'by', toHex(byColor, '#2f5bff'));
     this.splatLayer.appendChild(el);
     const st = { el, tint, end: this._fxTime + Math.max(0, respawn), num, last: Math.ceil(respawn) };
@@ -379,7 +387,7 @@ export class HUD {
       const n = Math.max(0, Math.ceil(st.t));
       if (n !== st.last) {
         st.last = n;
-        num.textContent = n > 0 ? String(n) : 'GO';
+        setLocalizedText(num, () => n > 0 ? String(n) : translate("GO"));
         num.animate([{ transform: 'scale(1.5)' }, { transform: 'scale(1)' }], BUMP);
         if (n > 0 && n <= 3) this._snd('countdown_tick', { volume: 0.5 });
       }
@@ -407,13 +415,13 @@ export class HUD {
       const barB = h('div', { class: 'iw-jd__bar b' });
       const edgeA = h('i', { class: 'iw-jd__edge a' }), edgeB = h('i', { class: 'iw-jd__edge b' });
       const clash = h('div', { class: 'iw-jd__clash', html: splatSVG({ seed: 99, fill: '#fff', r: 50, arms: 10, drops: 8 }) });
-      const wText = winner < 0 ? "IT'S A TIE!" : `${(names[winner] || TEAM_NAMES[winner] || '').toUpperCase()} WINS!`;
+      const wText = winner < 0 ? translate("IT'S A TIE!") : `${(names[winner] || TEAM_NAMES[winner] || '').toUpperCase()} WINS!`;
       const win = h('div', { class: 'iw-jd__win' + (winner === 1 ? ' is-b' : winner === 0 ? ' is-a' : ' is-tie') },
         h('div', { class: 'iw-jd__winsplat', html: splatSVG({ seed: 5, cls: 'iw-fwin', r: 58, arms: 11, drops: 5 }) }),
         h('div', { class: 'iw-jd__wintext iw-display' }, wText));
       const el = h('div', { class: 'iw-jd' },
         h('div', { class: 'iw-jd__bg' }),
-        h('div', { class: 'iw-jd__title iw-display' }, h('span', null, 'JUDGING'), h('span', { class: 'iw-jd__dots' }, h('i'), h('i'), h('i'))),
+        h('div', { class: 'iw-jd__title iw-display' }, h('span', null, () => translate("JUDGING")), h('span', { class: 'iw-jd__dots' }, h('i'), h('i'), h('i'))),
         h('div', { class: 'iw-jd__arena' },
           h('div', { class: 'iw-jd__labels' },
             h('div', { class: 'iw-jd__side a' }, h('span', { class: 'iw-jd__name' }, names[0] || TEAM_NAMES[0]), numA),
@@ -482,6 +490,7 @@ export class HUD {
   }
 
   dispose() {
+    this._offLanguage?.();
     removeEventListener('resize', this._onResize);
     cancelAnimationFrame(this._rafId);
     this._unsubs?.forEach((u) => u());
@@ -566,12 +575,12 @@ export class HUD {
       // callouts, most important first
       let call = null, sub = null;
       const enemies = this._actors().filter((a) => a.team !== me.team);
-      if (enemies.length >= 4 && enemies.every((a) => !a.alive)) { call = 'WIPEOUT!'; sub = 'The whole team is splatted'; }
+      if (enemies.length >= 4 && enemies.every((a) => !a.alive)) { call = translate("WIPEOUT!"); sub = translate("The whole team is splatted"); }
       else if (multi >= 2) call = STREAKS[Math.min(4, multi)];
-      else if (!K.first) { call = 'FIRST SPLAT!'; }
-      else if (K.lastKiller && victim === K.lastKiller) { call = 'REVENGE!'; K.lastKiller = null; }
-      else if (vStreak >= 3) { call = 'SHUTDOWN!'; sub = `Ended ${victim.name}'s streak`; }
-      else if (K.streak >= 3 && K.streak % 2 === 1) { call = `SPLAT STREAK ×${K.streak}`; }
+      else if (!K.first) { call = translate("FIRST SPLAT!"); }
+      else if (K.lastKiller && victim === K.lastKiller) { call = translate("REVENGE!"); K.lastKiller = null; }
+      else if (vStreak >= 3) { call = translate("SHUTDOWN!"); sub = formatMessage("Ended {0}'s streak",[victim.name]); }
+      else if (K.streak >= 3 && K.streak % 2 === 1) { call = formatMessage("SPLAT STREAK ×{0}",[K.streak]); }
       K.first = true;
       if (call) this._callout(call, sub, multi >= 3 || call === 'WIPEOUT!');
       return;
@@ -590,8 +599,8 @@ export class HUD {
       h('span', { class: 'iw-kcard__splat', html: splatSVG({ seed: 30 + ((Math.random() * 40) | 0), cls: 'iw-fself', r: 56, arms: 9, drops: 4 }) }),
       h('span', { class: 'iw-kcard__w', html: weaponIcon(kindOf(victim.weaponId)) }),
       h('span', { class: 'iw-kcard__txt' },
-        h('small', null, kind === 'assist' ? 'ASSIST' : 'SPLATTED'),
-        h('b', null, victim.name || 'Squidkid')));
+        h('small', null, () => kind === 'assist' ? translate("ASSIST") : translate("SPLATTED")),
+        h('b', null, victim.name || translate("Squidkid"))));
     colorVars(card, 'v', col);
     this.kcards.prepend(card);
     const cards = [...this.kcards.children].filter((c) => !c._out);
@@ -633,7 +642,7 @@ export class HUD {
         list.map((a, i) => h('div', { class: 'iw-lu__card' + (a.isLocal ? ' is-self' : ''), style: { '--i': i } },
           h('span', { class: 'iw-lu__w', html: weaponIcon(kindOf(a.weaponId)) }),
           h('span', { class: 'iw-lu__txt' }, h('b', null, a.name), h('small', null, (WEAPONS[a.weaponId] || {}).name || '')),
-          a.isLocal ? h('em', null, 'YOU') : null)));
+          a.isLocal ? h('em', null, () => translate("YOU")) : null)));
       colorVars(wrap, 't', col(t));
       return wrap;
     };
@@ -641,10 +650,10 @@ export class HUD {
       // boss mode: the whole squad (two columns) vs HULLBREAKER
       const squad = side(0);
       squad.classList.add('is-squad');
-      squad.querySelector('.iw-lu__name').textContent = 'YOUR SQUAD';
+      setLocalizedText(squad.querySelector('.iw-lu__name'), () => translate("YOUR SQUAD"));
       const foe = h('div', { class: 'iw-lu__team iw-lu__team--b iw-lu__foe' },
         h('div', { class: 'iw-lu__name iw-display' }, BOSS_NAME),
-        h('div', { class: 'iw-lu__bosscard' }, h('span', { class: 'iw-lu__bossart', html: bossEmblem() }), h('small', null, BOSS_EPITHET)));
+        h('div', { class: 'iw-lu__bosscard' }, h('span', { class: 'iw-lu__bossart', html: bossEmblem() }), h('small', null, () => translate(BOSS_EPITHET))));
       colorVars(foe, 't', col(1));
       const bel = h('div', { class: 'iw-lineup is-boss' }, squad,
         h('div', { class: 'iw-lu__vs' }, h('span', { class: 'iw-lu__vsplat', html: splatSVG({ seed: 77, fill: '#fff', r: 56, arms: 10, drops: 6 }) }), h('span', { class: 'iw-display' }, 'VS')),
@@ -1175,7 +1184,7 @@ export class HUD {
       out[i] = { x: tc.x / mm.w, y: tc.y / mm.h, name: o.name, weapon: o.weaponId, ok: !!(o.alive && !o.superJumpState), respawn: o.alive ? 0 : Math.ceil(o.respawnTimer || 0), actor: o };
     }
     const pad = G.level && G.level.spawnPads && G.level.spawnPads[me.team];
-    if (pad && mm) { mm.toCanvas(pad.x, pad.z, tc); out[3] = { x: tc.x / mm.w, y: tc.y / mm.h, name: 'Base', ok: true, home: true, pad }; }
+    if (pad && mm) { mm.toCanvas(pad.x, pad.z, tc); out[3] = { x: tc.x / mm.w, y: tc.y / mm.h, name: translate("Base"), ok: true, home: true, pad }; }
     return out;
   }
 
@@ -1262,7 +1271,7 @@ export class HUD {
     if (!b) return;
     if (!b.home && row._w !== b.weapon) { row._w = b.weapon; row.querySelector('.iw-lg__w').innerHTML = weaponIcon(kindOf(b.weapon)); }
     row.querySelector('.iw-lg__name').textContent = b.name;
-    const st = !canJump ? '—' : b.ok ? 'READY' : b.respawn ? `${b.respawn}s` : 'BUSY';
+    const st = !canJump ? '—' : b.ok ? translate("READY") : b.respawn ? `${b.respawn}s` : translate("BUSY");
     row.querySelector('.iw-lg__st').textContent = st;
     row.classList.toggle('is-off', !b.ok || !canJump);
     row.classList.toggle('is-hover', M.hover === i && b.ok && canJump);

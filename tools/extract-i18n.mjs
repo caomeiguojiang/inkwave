@@ -17,6 +17,6 @@ for (const file of files) {
   walk(parse(src, { ecmaVersion:'latest', sourceType:'module' }));
 }
 mkdirSync('.local',{recursive:true});
-const reviewed=new Set(readFileSync('src/i18n/messages.tsv','utf8').split('\n').map(line=>line.split('\t')[0]));
+const reviewed=new Set(Object.keys(JSON.parse(readFileSync('src/i18n/locales/en.json','utf8'))));
 writeFileSync('.local/i18n-candidates.json', JSON.stringify({candidates:[...strings.keys()],unreviewed:[...strings.keys()].filter(s=>!reviewed.has(s))}, null, 2));
 console.log(strings.size);

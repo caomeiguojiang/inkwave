@@ -1,3 +1,4 @@
+import {translate,formatMessage} from '../i18n/runtime.js';
 // INKWAVE UI — inline SVG icon set, input glyphs, logo and illustrations.
 // Everything is a markup string (cheap to clone via innerHTML) using currentColor / CSS classes for team ink:
 //   .iw-fa = accent/team A ink, .iw-fb = accent/team B ink (see ui.css).
@@ -263,7 +264,7 @@ export function richText(str) {
 
 // ------------------------------------------------------------------ logo
 /** Big display logo: letters + ink splat + animated drips. size: 'xl' | 'md' | 'sm' */
-export function logoMarkup(title = 'INKWAVE', subtitle = 'Turf Riot', size = 'xl') {
+export function logoMarkup(title = 'INKWAVE', subtitle = translate("Turf Riot"), size = 'xl') {
   const letters = [...title].map((ch, i) => `<span class="iw-logo__l" style="--i:${i}" data-l="${esc(ch)}">${esc(ch)}</span>`).join('');
   const s = splatShape(300, 110, 88, { seed: 23, arms: 11, drops: 9, armLen: 0.55 });
   // drips hanging off the splat, grow + drop

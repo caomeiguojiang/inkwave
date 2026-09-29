@@ -1,6 +1,12 @@
-.iw-language { position:fixed; top:10px; right:12px; z-index:100; display:flex; gap:6px; align-items:center; padding:6px 9px; border:1px solid #ffffff55; border-radius:8px; color:#fff; background:#15121ce8; font:14px system-ui,sans-serif; }
-.iw-language[hidden] { display:none; }
-.iw-language select { max-width:140px; color:#fff; background:#15121c; border:0; font:inherit; cursor:pointer; }
-html:lang(zh),html:lang(ja) { --font-body:'Rubik','Noto Sans CJK SC','Microsoft YaHei','PingFang SC','Yu Gothic',system-ui,sans-serif; }
-html:lang(zh) .iw-ui,html:lang(ja) .iw-ui,html:lang(zh) .iw-hud,html:lang(ja) .iw-hud { font-family:'Rubik','Microsoft YaHei','PingFang TC','Yu Gothic',system-ui,sans-serif; }
+@import url('./cjk-fonts.css');
+:root { --font-body:'Rubik',system-ui,sans-serif; --font-display:'Titan One','Rubik',sans-serif; }
+html:lang(zh-Hans) { --font-body:'Rubik','Swei SC',sans-serif; --font-display:'Titan One','Swei SC Display',sans-serif; }
+html:lang(zh-Hant) { --font-body:'Rubik','Swei TC',sans-serif; --font-display:'Titan One','Swei TC Display',sans-serif; }
+html:lang(ja) { --font-body:'Rubik','Swei JP',sans-serif; --font-display:'Titan One','Swei JP Display',sans-serif; }
+.iw-row--language { flex-direction:column; align-items:stretch; gap:calc(var(--u) * 1.8); }
+.iw-row--language .iw-row__ctrl .iw-seg { width:100%; }
+.iw-row--language .iw-seg__opt { min-height:2.4em; letter-spacing:0; }
+.iw-pv--language { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:1.5em; padding:1em; text-align:center; }
+.iw-pv-language__sample { font:400 clamp(24px,3vw,48px)/1.25 var(--font-display); color:var(--a); transform:rotate(-4deg); text-shadow:2px 3px 0 #15121c; }
+html:lang(ja) .iw-pv-language__sample { font-size:clamp(20px,2.2vw,36px); }
 html:lang(zh) .iw-btn__label,html:lang(ja) .iw-btn__label { letter-spacing:.02em; }

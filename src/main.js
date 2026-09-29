@@ -1,3 +1,4 @@
+import {translate,formatMessage,initialPreference,changeLanguage} from './i18n/runtime.js';
 // INKWAVE — boot, main loop and game-flow orchestration (menus ⇄ attract mode ⇄ matches ⇄ results).
 import * as THREE from 'three';
 import { G, on, emit, clamp, damp } from './core/ctx.js';
@@ -51,6 +52,7 @@ class Game {
     // real top-down thumbnails for the stage cards, generated from each layout's geometry
     for (const m of MAPS) { try { m.thumb = layoutThumbSVG(MAP_LAYOUTS[m.layout || m.id], m.theme); } catch (e) { console.warn('thumb', m.id, e); } }
     this.settings = G.settings = loadJSON('inkwave.settings', DEFAULT_SETTINGS);
+    this.settings.language = initialPreference;
     // v1.1: fov became horizontal — migrate old vertical values once
     if (this.settings.fovMode !== 'h') { this.settings.fov = DEFAULT_SETTINGS.fov; this.settings.fovMode = 'h'; saveJSON('inkwave.settings', this.settings); }
     this.profile = loadJSON('inkwave.profile', DEFAULT_PROFILE);
@@ -68,7 +70,7 @@ class Game {
     this.menus?.show('loading');
     this.bootMarks = [];
     const progress = async (p, label) => { this.bootMarks.push([label, Math.round(performance.now() - t0)]); this.menus?.setLoading(p, label); await nextFrame(); };
-    await progress(0.05, 'Mixing ink…');
+    await progress(0.05, translate("Mixing ink…"));
 
     // renderer / scene
     this.R = new Renderer(app, this.settings);
@@ -93,7 +95,7 @@ class Game {
     this.CharacterClass = charMod.Character;
     try { this.PropKit = (await import('./world/props.js')).PropKit; } catch (e) { console.error('[inkwave] prop kit failed to load', e); this.PropKit = null; }
     G.audio = audioMod.audio; G.music = musicMod.music;
-    await progress(0.15, 'Building the plaza…');
+    await progress(0.15, translate("Building the plaza…"));
 
     // world
     // (old ?map=sunset links = Tidewater at dusk)
@@ -109,14 +111,14 @@ class Game {
       this.texlib = await createTextureLibrary(G.renderer, { size: q.paintAtlas >= 4096 ? 512 : 256 });
     } catch (e) { console.error('[inkwave] texture library failed — procedural fallback', e); this.texlib = null; }
     await this._buildWorld(map);
-    await progress(0.4, 'Filling the harbor…');
+    await progress(0.4, translate("Filling the harbor…"));
     const B = G.level.bounds;
     G.env = new envMod.Environment(G.renderer, scene, { bounds: B, theme: this.theme, shadowSize: q.shadowSize, footprint: this._footprint(G.level) });
     if (G.env.envMap) scene.environment = G.env.envMap;
     // sky-fill balance (scene.environmentIntensity, hemisphere) + per-theme exposure are the environment theme's job
     // (Environment.setTheme), so a stage/time looks the same booted into or switched to mid-session
     G.renderer.toneMappingExposure = 0.94;
-    await progress(0.55, 'Teaching squids to swim…');
+    await progress(0.55, translate("Teaching squids to swim…"));
     G.projectiles = new Projectiles(scene);
     G.fx = new fxMod.FX(scene, { quality: q });
     G.fx.setLighting?.(G.env.getSkyColors?.());
@@ -138,21 +140,21 @@ class Game {
     // online session (G.net) — the menus' online screens and startNetMatch/netMatchGo/netMatchEnd below drive it
     try { (await import('./net/session.js')).installNet(); } catch (e) { console.error('[inkwave] net', e); }
     G.net?.on?.('lobby', ({ lobby }) => this._roomPalette(lobby));
-    await progress(0.7, 'Tuning the tentacles…');
+    await progress(0.7, translate("Tuning the tentacles…"));
 
     this._setPalette(this._pickPalette());
     this._bindEvents();
     this._startAttract();
     // warm up: compile every shader now so the first shot/splat never hitches
-    await progress(0.85, 'Warming up…');
+    await progress(0.85, translate("Warming up…"));
     this._warmup();
     // compile in parallel (KHR_parallel_shader_compile) so the loading screen keeps animating instead of freezing
     try { await G.renderer.compileAsync(scene, camera); } catch { G.renderer.compile(scene, camera); }
     for (const m of this._warmMeshes || []) { G.scene.remove(m); }
     this._warmMeshes?.[0]?.geometry.dispose(); this._warmMeshes = null;
-    await progress(0.93, 'Warming up…');
+    await progress(0.93, translate("Warming up…"));
     for (let i = 0; i < 3; i++) { this._frame(1 / 60); await nextFrame(); }
-    await progress(1, 'Ready!');
+    await progress(1, translate("Ready!"));
     await new Promise((r) => setTimeout(r, 250));
 
     this.timer = new THREE.Timer(); this.timer.connect?.(document);
@@ -352,6 +354,7 @@ class Game {
   _setSettings(partial) {
     Object.assign(this.settings, partial);
     saveJSON('inkwave.settings', this.settings);
+    if ('language' in partial) changeLanguage(partial.language);
     if ('quality' in partial || 'shadows' in partial || 'bloom' in partial) this.R?.applySettings(this.settings);
     if ('master' in partial || 'music' in partial || 'sfx' in partial) this._applyAudioVolumes();
     if ('colorblind' in partial && G.mode !== 'match') this._setPalette(this._pickPalette());
@@ -1101,10 +1104,10 @@ class Game {
     if (m.state === 'playing' && a.alive) {
       if (m.controller?.mapHeld) prompt = null;   // the map diorama carries its own super-jump hints
       else if (a.superJumpState) prompt = null;
-      else if (this._lowInkFlash > 0) { this._lowInkFlash -= dt; prompt = 'Low ink! Hold SHIFT in your ink to refill'; }
+      else if (this._lowInkFlash > 0) { this._lowInkFlash -= dt; prompt = translate("Low ink! Hold SHIFT in your ink to refill"); }
       else if (a.specialReady() && (this._hints.specialT = (this._hints.specialT || 0) + dt) > 2) prompt = `Special ready! Press F`;
-      else if (inkF < 0.25 && a.form !== 'squid') prompt = 'Hold SHIFT to swim in your ink and refill';
-      else if (m.duration - m.time < 8 && !this._hints.shot) prompt = 'Paint the ground — most turf wins!';
+      else if (inkF < 0.25 && a.form !== 'squid') prompt = translate("Hold SHIFT to swim in your ink and refill");
+      else if (m.duration - m.time < 8 && !this._hints.shot) prompt = translate("Paint the ground — most turf wins!");
       if (!a.specialReady()) this._hints.specialT = 0;
       if (a.intent.fire) this._hints.shot = true;
     }
