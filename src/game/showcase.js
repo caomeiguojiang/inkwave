@@ -3040,6 +3040,8 @@ export class Showcase {
   // dissolving with whatever is under it — or, while it covers the frame, drawn over a cleared canvas because main.js
   // skipped the world), then the studio overlay (pedestal / podium, premultiplied over the frame).
   render() {
+    G.post?.syncShadows?.(this.scene);
+    G.post?.syncShadows?.(this.lob?.scene);
     if (this._pq.length) this._portraitStep();
     const r = this.r, W = innerWidth, H = innerHeight;
     this._fdt = 1 / 60;

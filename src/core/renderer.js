@@ -100,7 +100,16 @@ export class Renderer {
 
   _buildComposer() {
     const r = this.renderer, q = this.q;
-    if (this.composer) { this.composer.renderTarget1.dispose(); this.composer.renderTarget2.dispose(); }
+    if (this.composer) {
+      for (const pass of this.composer.passes) {
+        if (pass === this.extraPass) continue; // owned by screenfx, reused below
+        // Some upstream passes omit owned materials in dispose(). Dispose is idempotent.
+        const materials = new Set(Object.values(pass).flat().filter(v => v?.isMaterial));
+        pass.dispose?.();
+        for (const material of materials) material.dispose();
+      }
+      this.composer.dispose();
+    }
     this.dynScale = this.dynScale || 1;
     const pr = Math.min(window.devicePixelRatio || 1, q.pixelRatio) * this.dynScale;
     r.setPixelRatio(pr);
@@ -132,7 +141,8 @@ export class Renderer {
     // optional screen-FX pass (src/fx/screenfx.js) — runs in HDR linear space before tone mapping/output
     if (this.extraPass) comp.addPass(this.extraPass);
     comp.addPass(new OutputPass());
-    r.shadowMap.enabled = this.settings.shadows !== false;
+    // Keep one shader variant; visibility is a light uniform, not a shader rebuild.
+    r.shadowMap.enabled = true;
     this._w = w; this._h = h;
     this.grade.uniforms.uAspect.value = w / h;
   }
@@ -147,13 +157,48 @@ export class Renderer {
     const prevQ = this.q;
     this.settings = settings;
     this.q = QUALITY[settings.quality] || QUALITY.high;
-    const shadowChanged = this.renderer.shadowMap.enabled !== (settings.shadows !== false);
-    if (prevQ !== this.q || shadowChanged) {
+    if (prevQ !== this.q) {
       if (prevQ !== this.q) this.dynScale = 1;
       this._buildComposer();
-      this.scene?.traverse((o) => { if (o.material) { const m = Array.isArray(o.material) ? o.material : [o.material]; m.forEach((mm) => (mm.needsUpdate = true)); } });
     }
+    this.syncShadows(this.scene);
     if (this.bloom) this.bloom.enabled = !!(this.q.bloom && settings.bloom);
+  }
+
+  syncShadows(scene) {
+    if (!scene) return;
+    this._shadowScenes ||= new WeakMap();
+    this._shadowDefaults ||= new WeakMap();
+    const enabled = this.settings.shadows !== false;
+    const old = this._shadowScenes.get(scene);
+    if (old?.enabled === enabled && old.children === scene.children.length) return;
+    scene.traverse(o => {
+      if (!o.isLight || !o.castShadow || !o.shadow) return;
+      const s = o.shadow;
+      if (!this._shadowDefaults.has(s)) this._shadowDefaults.set(s, { intensity: s.intensity, autoUpdate: s.autoUpdate });
+      const saved = this._shadowDefaults.get(s);
+      s.intensity = enabled ? saved.intensity : 0;
+      s.autoUpdate = enabled ? saved.autoUpdate : false;
+      s.needsUpdate = enabled;
+    });
+    this._shadowScenes.set(scene, { enabled, children: scene.children.length });
+    this.renderer.shadowMap.needsUpdate = enabled;
+  }
+
+  async waitGPU() {
+    const gl = this.renderer.getContext();
+    const fence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!fence) throw new Error('Could not create graphics readiness fence');
+    gl.flush();
+    const deadline = performance.now() + 60000;
+    try {
+      for (;;) {
+        const status = gl.clientWaitSync(fence, 0, 0);
+        if (status === gl.ALREADY_SIGNALED || status === gl.CONDITION_SATISFIED) return;
+        if (status === gl.WAIT_FAILED || gl.isContextLost() || performance.now() > deadline) throw new Error('Graphics preparation failed or timed out');
+        await new Promise(resolve => setTimeout(resolve, 8));
+      }
+    } finally { gl.deleteSync(fence); }
   }
 
   // Dynamic resolution (never on ultra): scale the render density between 0.75 and 1 of the quality preset.
@@ -179,6 +224,7 @@ export class Renderer {
   }
 
   render() {
+    this.syncShadows(this.scene);
     this.resize();
     // colour grade recommended by the environment theme (day / dusk)
     const gr = G.env && G.env.grade;

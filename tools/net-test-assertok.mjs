@@ -8,6 +8,12 @@ source=source.replace("'--use-angle=metal', ",'');
 // Upstream launches clients concurrently; push() can misalign browsers and pages.
 source=source.replace('browsers.push(b); pages[i] = p;', 'browsers[i] = b; pages[i] = p;');
 source=source.replace('const p = await b.newPage();', "const p = await b.newPage(); await p.evaluateOnNewDocument(tag => { Object.defineProperty(navigator, 'languages', {get:()=>[tag]}); }, i === 0 ? 'zh-CN' : 'ja-JP');");
+const slowIndex=process.argv.indexOf('--slow-client-ms');
+if(slowIndex>=0){
+  const delay=Number(process.argv[slowIndex+1]);
+  if(!Number.isFinite(delay)||delay<0||delay>30000)throw new Error('Invalid slow-client-ms');
+  source=source.replace('const tStart = Date.now();', `await ev(1, ms => { const game=__G.game, original=game.startNetMatch.bind(game); game.startNetMatch=async (...args)=>{await original(...args);await new Promise(r=>setTimeout(r,ms));}; }, ${delay});\n  const tStart = Date.now();`);
+}
 const file=resolve('tools/.net-test-assertok.generated.mjs');
 if (process.argv.includes('--language-switch')) {
   const marker="  say('--- consistency');";

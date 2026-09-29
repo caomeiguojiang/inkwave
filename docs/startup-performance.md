@@ -141,10 +141,9 @@ ignored `.local/startup/`. Server configuration and production files were not ch
 2. Separate the standalone character/showcase renderer from the arena. At present,
    the first loadout/locker visit still prepares the whole world. The initial online
    hub/lobby has no 3D showcase before world initialization.
-3. Harden slow-client readiness. `net/session.js` has a 12-second forced-go timer
-   after a readiness event. Moving cold initialization into match entry increases
-   the chance of a late client; test deliberately asymmetric clients and buffer
-   early go messages or revise the readiness protocol before production rollout.
+3. Integrate localized preparation/error copy into the parent's native i18n. The
+   readiness protocol is now bounded and tested locally; do not mix old and new
+   clients in a release (reload clients when updating the protocol).
 4. Prototype offline baking of deterministic material arrays. Measure compressed
    transfer bytes, decode/upload time, memory and pixel equivalence, including
    sRGB albedo, linear normals/ORM, alpha and all layers. Key artifacts to generator
@@ -174,3 +173,52 @@ node tools/net-test-assertok.mjs --url http://127.0.0.1:8492/ --clients 2 --qual
 `CHROME_PATH` overrides the Windows Chrome executable. Keep benchmark browser runs
 serial for more comparable timings. Do not compare the preview run's total time
 with the direct-to-match run: they execute different user journeys.
+
+## Resource preparation and settings follow-up
+
+The renderer owns graphics resource lifetime; the game owns stage preparation;
+NetSession owns network orchestration; `net/preparation.js` owns the host's pure
+readiness policy. No menu DOM hooks are used for these changes.
+
+- Shadow and bloom toggles reuse the composer. Shadows retain shader variants and
+  allocated maps, but disable shadow updates and contribution. This intentionally
+  trades retained memory for predictable toggle latency. Quality changes dispose
+  owned passes and targets, including materials omitted by upstream pass disposal.
+- Heavy quality changes are coalesced and applied before the next match. Texture
+  library resolution, paint atlas, shadow size, FX quality and postprocessing are
+  rebuilt together. Existing explicit quality preferences remain; new profiles
+  default to Medium. There is no automatic GPU quality classifier.
+- Procedural layers yield between tasks. GPU completion uses asynchronous readback
+  for material preparation and a fence before entering a match. Selected lightmap
+  metadata, hash and texture must succeed. Character preparation no longer races
+  an eight-second forced continuation. Cancellation never starts a match later.
+- The host starts immediately when connected participants are ready. Once a strict
+  majority including the host is ready, other clients receive 30 seconds of grace.
+  Total preparation is capped at 120 seconds. Valid ready players may start with
+  a minority excluded; otherwise the attempt aborts. Humans-only map/team rules
+  remain required. Clients have a 130-second lost-host fallback. These are initial
+  policy constants, not device performance claims.
+- Exclusions travel in the authoritative go message. Every ready peer uses the
+  existing onLeave bot/removal behavior; excluded clients cannot enter this match
+  or send accepted replication messages. No late-join state synchronization was added.
+
+Local Chrome/RTX 5070 evidence: six shadow/bloom toggles reused the composer,
+textures stayed 46, click handlers took 0.1–0.3 ms, and maximum sampled frame gaps
+were approximately 17 ms. This addresses the previously measured 12.5-second
+shadow-toggle stall; it does not establish performance on low-end hardware.
+A blocked warm-up remained in loading after nine seconds; selecting Medium while
+High was active applied consistent Medium resources before the next map. A failed
+lightmap request prevented entry with a visible error. Material array pixel tests
+reported zero mismatches and no empty sampled attachments.
+
+Two real clients with an additional 16-second readiness delay completed a full
+match and returned to the lobby. Clock spread was 0.04 seconds and final results
+agreed. Readiness policy tests cover minority delays, missing host, missing majority,
+disconnects and map restrictions. Browser exclusion and cancellation tests passed and are
+available in `tools/test-net-preparation.mjs` and `tools/test-graphics-readiness.mjs`.
+
+First entry still includes costly procedural generation and shader compilation.
+The latest single Medium run reached the menu in 0.61 s and playing in 31.17 s,
+with a 2.84 s maximum long task. Further baking/worker experiments need measured
+tradeoffs; moving the same synchronous GPU work into a Promise is not a solution.
+This branch is local-only and is not a production deployment.

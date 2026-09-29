@@ -1381,7 +1381,11 @@ export async function createTextureLibrary(renderer, { size = 512, stage = null 
     const quads = progs.map((p) => { const q = new THREE.Mesh(geo, p); q.frustumCulled = false; scene.add(q); return q; });
     const groupOf = new Map(groups.flatMap((list, k) => list.map(([, i]) => [i, k])));
     const compileStart = performance.now();
-    try { await renderer.compileAsync(scene, cam); }
+    const compileRT = renderer.getRenderTarget(), compileFace = renderer.getActiveCubeFace(), compileMip = renderer.getActiveMipmapLevel();
+    let compilation;
+    try { renderer.setRenderTarget(out, entries[0][1]); compilation = renderer.compileAsync(scene, cam); }
+    finally { renderer.setRenderTarget(compileRT, compileFace, compileMip); }
+    try { await compilation; }
     catch (error) { progs.forEach(p => p.dispose()); throw error; }
     compileMs += performance.now() - compileStart;
 
@@ -1405,9 +1409,15 @@ export async function createTextureLibrary(renderer, { size = 512, stage = null 
         if (index === entries.length - 1) for (const t of out.textures) t.generateMipmaps = true;
         renderer.setRenderTarget(out, i);
         renderer.render(scene, cam);
+        // Leave a real task boundary between GPU submissions; menus/input can paint.
+        renderer.setRenderTarget(prevRT, prevFace, prevMip);
+        renderer.autoClear = prevAutoClear; renderer.xr.enabled = prevXR;
+        await (globalThis.scheduler?.yield?.() || new Promise(resolve => setTimeout(resolve, 0)));
+        renderer.autoClear = false; renderer.xr.enabled = false;
       }
-      // wait for the GPU so the reported time is honest (one-pixel readback)
-      renderer.readRenderTargetPixels(out, 0, 0, 1, 1, new Uint8Array(4), undefined, 2);
+      // Async completion check: do not stall the main thread waiting for the GPU.
+      renderer.setRenderTarget(out, entries.at(-1)[1]);
+      await renderer.readRenderTargetPixelsAsync(out, 0, 0, 1, 1, new Uint8Array(4), undefined, 2);
       for (const [, i] of entries) generated.add(i);
     } finally {
       renderer.setRenderTarget(prevRT, prevFace, prevMip);
