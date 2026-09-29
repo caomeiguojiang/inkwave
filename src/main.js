@@ -49,8 +49,15 @@ async function loadModule(path, stubName) {
 class Game {
   async boot() {
     const t0 = this._bootStart = performance.now();
-    // real top-down thumbnails for the stage cards, generated from each layout's geometry
-    for (const m of MAPS) { try { m.thumb = layoutThumbSVG(MAP_LAYOUTS[m.layout || m.id], m.theme); } catch (e) { console.warn('thumb', m.id, e); } }
+    // Generate each SVG only when its card/fallback is used, then cache it.
+    for (const m of MAPS) {
+      let thumb;
+      Object.defineProperty(m, 'thumb', { configurable: true, get() {
+        if (thumb !== undefined) return thumb;
+        try { return thumb = layoutThumbSVG(MAP_LAYOUTS[m.layout || m.id], m.theme); }
+        catch (e) { console.warn('thumb', m.id, e); return thumb = ''; }
+      } });
+    }
     this.settings = G.settings = loadJSON('inkwave.settings', DEFAULT_SETTINGS);
     this.settings.language = initialPreference;
     // v1.1: fov became horizontal — migrate old vertical values once
@@ -146,7 +153,7 @@ class Game {
     this.murals = await createMuralTexture();
     try {
       const { createTextureLibrary } = await import('./world/texlib.js');
-      this.texlib = await createTextureLibrary(G.renderer, { size: q.paintAtlas >= 4096 ? 512 : 256 });
+      this.texlib = await createTextureLibrary(G.renderer, { size: q.paintAtlas >= 4096 ? 512 : 256, stage: map.layout || map.id });
     } catch (e) { console.error('[inkwave] texture library failed — procedural fallback', e); this.texlib = null; }
     await this._buildWorld(map);
     await progress(0.4, translate("Filling the harbor…"));
@@ -222,6 +229,7 @@ class Game {
     const scene = G.scene;
     const layoutId = map.layout || map.id;
     if (this.layoutId === layoutId) { this.mapDef = map; return; }
+    await this.texlib?.ensureStage?.(layoutId);
     if (this.levelMesh) { scene.remove(this.levelMesh, this.grateMesh); this.levelMesh.geometry.dispose(); this.grateMesh?.geometry.dispose(); this.levelMat.dispose(); this.grateMat?.dispose(); }
     if (this.decor) { scene.remove(this.decor.group); }
     if (this.props) { this.props.dispose?.(); this.props = null; }

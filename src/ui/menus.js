@@ -860,7 +860,6 @@ export class Menus {
     const nextRank = RANK_TIERS[tier + 1];
     const avatar = h('div', { class: 'iw-profile__avatar' }, h('span', { class: 'iw-profile__avblob', html: splatSVG({ seed: 17, cls: 'iw-fa', r: 62, arms: 8, drops: 0 }) }), h('span', { class: 'iw-profile__squid', html: SQUID }));
     this._portraitInto(avatar, { kind: 'head', size: 160 });
-    this._preloadStages();
     const profile = this._panel('iw-profile iw-in iw-in--right',
       avatar,
       h('div', { class: 'iw-profile__info' },
@@ -986,23 +985,6 @@ export class Menus {
     return t === 'dusk' || t === 'day' ? t : (s.timeOfDay === 'dusk' ? 'dusk' : 'day');
   }
 
-  /** Warm the image cache with every stage render (hero + thumbnail, day + dusk) so switches never flash. */
-  _preloadStages() {
-    if (this._stageImgs) return;
-    this._stageImgs = [];
-    for (const m of this._maps()) {
-      for (const t of ['day', 'dusk']) {
-        for (const sm of [true, false]) {
-          const im = new Image();
-          im.decoding = 'async';
-          im.src = stageArt(m.id, t, sm);
-          if (im.decode) im.decode().catch(() => {});
-          this._stageImgs.push(im);
-        }
-      }
-    }
-  }
-
   _scr_setup() {
     const s = this._settings();
     const maps = this._maps().filter((m) => !m.onlineOnly);   // (online-only stages live in the online lobby's picker)
@@ -1018,7 +1000,6 @@ export class Menus {
     st.duration = boss ? (durations.includes(s.bossLength) ? s.bossLength : 240) : durations.includes(s.matchLength) ? s.matchLength : (MATCH.defaultDuration || 180);
     const timeOf = (id) => this._stageTime(id);
     const reduced = prefersReducedMotion();
-    this._preloadStages();
 
     // ---- JS tweens (driven by tick → honour the lab's freeze / slow-mo)
     const tweens = [];
@@ -1136,8 +1117,8 @@ export class Menus {
 
     // ---- stage list: tilted tickets with the render, name tape, time badge, select splat
     const tickets = maps.map((m, i) => {
-      const imgDay = h('img', { class: 'iw-ticket__img is-day', alt: '', draggable: 'false' });
-      const imgDusk = h('img', { class: 'iw-ticket__img is-dusk', alt: '', draggable: 'false' });
+      const imgDay = h('img', { class: 'iw-ticket__img is-day', alt: '', draggable: 'false', loading: 'lazy', decoding: 'async' });
+      const imgDusk = h('img', { class: 'iw-ticket__img is-dusk', alt: '', draggable: 'false', loading: 'lazy', decoding: 'async' });
       for (const [im, t] of [[imgDay, 'day'], [imgDusk, 'dusk']]) {
         im.addEventListener('error', () => { im.remove(); c.classList.add('is-noart'); }, { once: true });
         im.src = stageArt(m.id, t, true);

@@ -4,6 +4,59 @@ Date: 2026-09-29. Base: `6203110964364f50244bf61e3bfd4e322a792346`.
 Isolated checkout: `C:/Users/chengziang02/Documents/inkwave-startup`.
 Branch: `codex/startup-performance`. No production deployment.
 
+## Follow-up: image/material growth and balanced defaults
+
+Implemented after the initial measurements below:
+
+- Fresh profiles now default to the existing Medium preset. Existing saved choices,
+  including High, remain unchanged. This is a balanced default, not a new GPU
+  classifier or an Auto quality preset. The existing dynamic-resolution controller
+  remains in use; no high-cost effects are enabled mid-round by this change.
+- Removed `_preloadStages()` and its calls. Main menu requests only the backdrop
+  image; setup requests visible small images and the selected hero image. Ticket
+  images use native lazy loading and asynchronous decoding.
+- SVG thumbnails are generated on first use and cached, instead of all at boot.
+- The procedural library preserves stable layer indices but compiles/generates
+  only common materials plus the chosen stage's owned materials. `ensureStage()`
+  serializes requests, fills missing layers on a later map change and reuses them
+  on return. The full-library API remains available for art-generation tools.
+  This saves generation work, not array allocation: GPU storage still reserves
+  all 28 layers. Original shared marina materials remain in the common pack.
+
+`tools/test-startup-performance.mjs` passed these browser checks: fresh Medium,
+no renderer on main menu, exactly one stage image request on main menu, native
+settings High selection before world load, persisted High after refresh, setup
+does not request Cargo or unselected full-size hero images. A 64x64 GPU comparison
+of all three attachments for a common material and all Cargo materials found zero
+different bytes versus full generation. Initial generated layers were 25; concurrent
+Cargo requests filled to 28; a subsequent return request remained at 28. This is a
+targeted pixel check, not a visual equivalence claim for all devices/resolutions.
+The final test asserts every sampled attachment is nonempty and rejects WebGL
+errors. Readback uses `normal.renderTarget`: Three's array-target constructor does
+not retain that pointer on the replaced attachment-zero texture.
+
+Fresh browser measurements on the same RTX 5070, each observed once:
+
+| Follow-up run | Menu observed | Playing observed from navigation | Texture generation | Transferred through sample |
+| --- | ---: | ---: | ---: | ---: |
+| Default Medium | 0.58 s | 27.42 s | 5.02 s, 256 px | 2.24 MB |
+| Explicit High | 0.51 s | 32.60 s | 6.54 s, 512 px | 2.24 MB |
+
+The earlier retained-audio High run observed playing at 44.92 seconds and roughly
+4.71 MB transferred. Hardware contention and driver caches vary, so do not treat
+these single samples as guaranteed speedups. Initial main-menu stage image count
+decreased deterministically from 16 to 1. High's quality preset was not reduced.
+Full first-play latency is still substantial and requires further work.
+
+The follow-up Cargo two-client Low-quality full match also passed: both entered
+playing after 34.9 seconds, matching rosters/KD and results, clock spread 0.09 seconds
+in the sample, and both returned to the lobby. This exercises the stage-owned
+material path in a real online-only map. It does not validate asymmetric slow-client
+readiness, which remains a release gate below.
+
+Run `node tools/test-startup-performance.mjs` for the follow-up checks, and use
+`--quality high` with the benchmark to keep quality fixed when comparing versions.
+
 ## Findings
 
 The loading bar covers substantial local rendering work, not just downloads.

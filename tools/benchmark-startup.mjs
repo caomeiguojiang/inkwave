@@ -7,11 +7,13 @@ const browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH||'C
 const errors=[];
 try {
   const page=await browser.newPage(); page.on('pageerror',e=>errors.push(e.message));
+  const quality=option('quality',null);
+  if(quality) await page.evaluateOnNewDocument(q=>localStorage.setItem('inkwave.settings',JSON.stringify({quality:q})),quality);
   await page.evaluateOnNewDocument(()=>{window.startupLongTasks=[];new PerformanceObserver(l=>startupLongTasks.push(...l.getEntries().map(e=>({at:e.startTime,ms:e.duration})))).observe({type:'longtask',buffered:true});});
   const cdp=await page.createCDPSession(); await cdp.send('Emulation.setCPUThrottlingRate',{rate:Number(option('cpu',1))});
   await page.goto(url+'?skipTitle&news=0',{waitUntil:'domcontentloaded',timeout:120000});
   await page.waitForFunction('window.__G?.menus?.current === "main" && window.__inkwave',{timeout:180000});
-  const menu=await page.evaluate(()=>({time:performance.now(),boot:__inkwave.bootMs,marks:__inkwave.bootMarks,renderer:!!__G.renderer,texture:__inkwave.texlib?.stats}));
+  const menu=await page.evaluate(()=>({time:performance.now(),boot:__inkwave.bootMs,quality:__inkwave.settings.quality,marks:__inkwave.bootMarks,renderer:!!__G.renderer,texture:__inkwave.texlib?.stats}));
   const clickStart=Date.now(); await page.click('[data-id="settings"]');
   await page.waitForFunction('__G.menus.current === "settings"');
   const settingsClickMs=Date.now()-clickStart;
