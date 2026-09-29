@@ -19,7 +19,11 @@ Use the existing controls and preview panel when extending settings. The languag
 row is in General, with a styled dropdown containing Auto and four native-language
 names. Enter/A opens it; up/down browse without applying, Enter/A confirms, and
 Escape/B or an outside click cancels. It uses the existing modal/focus navigation,
-restores the row focus, and keeps the popup inside the viewport.
+restores the row focus, and keeps the popup inside the viewport. Its recessed track,
+raised gradient face, bottom edge and press feedback reuse the existing setting
+materials in styles/ui.css. Selected state and browsing focus stay distinct.
+Up from the first row returns to the active category; down from a category enters
+its first row. ResizeObserver keeps the category highlight aligned after resizing.
 
 ## i18next
 
@@ -79,7 +83,9 @@ use the platform fallback font. CSS loads only the active locale's used fonts.
 - `node --test tools/test-i18n.mjs server-node/test.mjs`: negotiation, live config labels,
   interpolation, fallback and protocol invariants.
 - `node tools/test-language-switch.mjs`: real browser settings, stable timeOrigin/Game,
-  focus/navigation and persisted preference.
+  cross-category focus, real pointer hover/press, keyboard confirm/cancel, list edge
+  containment, viewport resizing and persisted preference. Controller commands are
+  exercised through menus.nav; this does not establish physical-device acceptance.
 - `node tools/verify-assertok.mjs`: four initial browser locales and menu screens.
 - `node tools/net-test-assertok.mjs --clients 2 --quality low --secs 12 --full --language-switch`:
   switch through the native settings during a real match; assert same Game/Match/HUD,

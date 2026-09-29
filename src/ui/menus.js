@@ -1841,7 +1841,8 @@ export class Menus {
   _dropdown(row, value) {
     let current = value;
     const label = h('span');
-    const el = h('span', { class: 'iw-select' }, label, h('i', { html: GLYPHS.next }));
+    const el = h('span', { class: 'iw-select' }, h('span', { class: 'iw-select__face' }, label, h('i', { html: GLYPHS.next })));
+    this._fx(el);
     const refresh = (v) => { current = v; label.textContent = row.options.find(o => o[0] === v)?.[1] || v; };
     let popup = null, trigger = null;
     const open = () => {
@@ -1858,6 +1859,10 @@ export class Menus {
           this._closeModal(true);
           if (v !== current) { this._sfx('ui_toggle'); this._setSetting(row.key, v); }
         } });
+        this._fx(option);
+        option.addEventListener('pointermove', (e) => {
+          if ((e.movementX || e.movementY) && this._modal === popup) this._setFocus(option, { sound: true });
+        }, { passive: true });
         return option;
       });
       list.append(...choices);
@@ -2090,10 +2095,11 @@ export class Menus {
       panel, card,
       this._prompts([[['Enter', '←', '→'], 'A', translate("SELECT")], [['Q', 'E'], null, translate("Tabs")], ['Esc', 'B', translate("Back")]]));
     el.querySelector('.iw-prompts').children[1].querySelector('.iw-padg').innerHTML = padGlyph('LB') + padGlyph('RB');
+    const tabResize = new ResizeObserver(() => movePill(true));
     return {
       el,
       initial: () => rowsEl.querySelector('[data-nav]'),
-      afterMount: () => movePill(true),
+      afterMount: () => { movePill(true); tabResize.observe(tabsEl); },
       onFocus: (f) => {
         const list = f.closest('[role="listbox"]');
         if (list) list.setAttribute('aria-activedescendant', f.id);
@@ -2115,6 +2121,9 @@ export class Menus {
       },
       onNav: (dir) => {
         if (this._modal) return dir === 'tab_prev' || dir === 'tab_next';
+        const firstRow = rowsEl.querySelector('[data-nav]');
+        if (dir === 'up' && this._focus === firstRow) { this._moveFocus(tabBtns[tabIdx], dir); return true; }
+        if (dir === 'down' && tabBtns.includes(this._focus)) { this._moveFocus(firstRow, dir); return true; }
         if (dir === 'tab_prev' || dir === 'tab_next') {
           const onTab = this._focus && this._focus.dataset.nav === 'tab';
           if (selectTab(tabIdx + (dir === 'tab_next' ? 1 : -1), true)) this._setFocus(onTab ? tabBtns[tabIdx] : rowsEl.querySelector('[data-nav]'));
@@ -2123,7 +2132,7 @@ export class Menus {
         }
         return false;
       },
-      destroy: () => { for (const c of controls.values()) c.dispose?.(); },
+      destroy: () => { tabResize.disconnect(); for (const c of controls.values()) c.dispose?.(); },
       tick: (dt) => {
         for (const c of controls.values()) c.tick?.();
         if (P.cur && P.cur.tick) P.cur.tick(dt);
