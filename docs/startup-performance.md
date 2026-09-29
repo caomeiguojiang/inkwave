@@ -13,7 +13,7 @@ before exposing the menu. High quality uses the existing expensive render settin
 
 `world/texlib.js` compiles procedural generator programs, renders every material
 layer, then synchronously reads a pixel to wait for the GPU. Local measurements
-put this stage at approximately 5–8.4 seconds on an RTX 5070. Removing the readback
+put this stage at approximately 5–10.2 seconds on an RTX 5070. Removing the readback
 alone would mostly move the wait elsewhere; it does not remove the GPU work.
 Character variants also have their own warm-up in `_warmCharacters()`.
 
@@ -60,6 +60,7 @@ are individual observations, not percentiles or weak-device acceptance.
 | Initial staged | 0.64 s | No WebGL renderer yet; entered offline playing state; no page errors |
 | Preview flow | 0.67 s | Locker initialized, returned to menu, then entered offline playing state; no page errors |
 | Direct staged repeat | 2.11 s | Playing observed at 40.74 s from navigation; no page errors |
+| Final, menu audio retained | 2.60 s | Playing observed at 44.92 s from navigation; no page errors |
 
 The first baseline/staged reports took their final snapshot after a 2.5-second
 stability sample: 53.41 / 30.03 seconds from navigation. Those final snapshot times
