@@ -18,7 +18,8 @@ if (process.argv.includes('--language-switch')) {
     const root=__G.hud.el, hud=__G.hud;
     __G.game.menus.show('settings');
     const row=__G.game.menus._scr.el.querySelector('[data-id="set-language"]');
-    row.querySelectorAll('.iw-seg__opt')[2].click();
+    row.click();
+    __G.game.menus._modal.querySelector('[data-value=\"zh-Hans\"]').click();
     await new Promise(ok=>setTimeout(ok,50));
     if (document.documentElement.lang!=='zh-Hans' || __G.game!==game || __G.match!==match || __G.net!==net || net.myId!==id || !id || net.tr.ws!==socket || socket.readyState!==WebSocket.OPEN || performance.timeOrigin!==origin || __G.hud!==hud || hud.el!==root) throw Error('Language switch changed game/session/HUD identity');
     const {translate}=await import('/src/i18n/runtime.js');

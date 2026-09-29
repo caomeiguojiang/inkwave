@@ -110,7 +110,7 @@ const MENU_DESC = {
 const pctFmt = (v) => Math.round(v * 100) + '%';
 const SETTINGS_TABS = [
   { id: 'general', get label() { return translate('General'); }, icon: 'gear', rows: [
-    { key: 'language', get label() { return translate('Language'); }, type: 'seg',
+    { key: 'language', get label() { return translate('Language'); }, type: 'select',
       get options() { return [['auto', translate('AUTO')], ...LANGUAGES.map(code => [code, LANGUAGE_NAMES[code]])]; },
       get help() { return translate('Choose your language. Changes apply immediately without leaving your game.'); } },
   ] },
@@ -735,6 +735,7 @@ export class Menus {
     const m = this._modal;
     if (!m) return;
     this._modal = null;
+    safeCall(() => m._onClose?.());
     m.classList.add('is-leaving');
     setTimeout(() => m.remove(), 240);
     if (!silent) this._sfx('ui_back');
@@ -1837,6 +1838,55 @@ export class Menus {
     };
   }
 
+  _dropdown(row, value) {
+    let current = value;
+    const label = h('span');
+    const el = h('span', { class: 'iw-select' }, label, h('i', { html: GLYPHS.next }));
+    const refresh = (v) => { current = v; label.textContent = row.options.find(o => o[0] === v)?.[1] || v; };
+    let popup = null, trigger = null;
+    const open = () => {
+      if (this._modal) return;
+      trigger = el.closest('[data-nav]');
+      const options = row.options;
+      const list = h('div', { class: 'iw-select__list', id: 'settings-' + row.key + '-options', role: 'listbox', tabindex: '-1', 'aria-label': row.label });
+      popup = h('div', { class: 'iw-select-popup' }, list);
+      const choices = options.map(([v, name], i) => {
+        const option = h('button', { class: 'iw-select__option' + (v === current ? ' is-selected' : ''),
+          id: row.key + '-option-' + i, role: 'option', 'aria-selected': String(v === current),
+          data: { value: v } }, h('span', null, name), h('i', { html: v === current ? GLYPHS.check : '' }));
+        this._bind(option, { id: row.key + '-' + v, accept: () => {
+          this._closeModal(true);
+          if (v !== current) { this._sfx('ui_toggle'); this._setSetting(row.key, v); }
+        } });
+        return option;
+      });
+      list.append(...choices);
+      popup.addEventListener('click', e => { if (e.target === popup) this._closeModal(); });
+      popup._onClose = () => {
+        // Removing the list can expose another control under the stationary pointer.
+        this._lastMove = -Infinity;
+        trigger.setAttribute('aria-expanded', 'false'); trigger.focus({ preventScroll: true }); popup.remove(); popup = null;
+      };
+      popup._position = () => {
+        const anchor = el.getBoundingClientRect(), screen = this._scr.el.getBoundingClientRect();
+        list.style.width = Math.min(anchor.width, screen.width - 24) + 'px';
+        list.style.left = clamp(anchor.left - screen.left, 12, screen.width - list.offsetWidth - 12) + 'px';
+        const below = anchor.bottom - screen.top + 6;
+        list.style.top = Math.max(12, below + list.offsetHeight <= screen.height - 12 ? below : anchor.top - screen.top - list.offsetHeight - 6) + 'px';
+      };
+      this._scr.el.appendChild(popup);
+      this._modalPrev = trigger;
+      this._modal = popup;
+      trigger.setAttribute('aria-expanded', 'true');
+      popup._position();
+      this._setFocus(choices[Math.max(0, options.findIndex(o => o[0] === current))], { snap: true });
+      list.focus({ preventScroll: true });
+      this._sfx('ui_click');
+    };
+    refresh(value);
+    return { el, accept: open, refresh, tick: () => popup?._position(), dispose: () => { if (popup && popup === this._modal) this._closeModal(true); } };
+  }
+
   _slider(row, value) {
     const { key, min, max, step, fmt } = row;
     let v = +value;
@@ -1931,7 +1981,7 @@ export class Menus {
       const o = (r.options || []).find((x) => x[0] === v);
       return o ? o[1] : String(v);
     };
-    const fmtVal = (r, v) => (!r ? '' : r.type === 'slider' ? r.fmt(+v) : r.type === 'toggle' ? (v ? translate("ON") : translate("OFF")) : r.type === 'seg' ? optLabel(r, v).toUpperCase() : '');
+    const fmtVal = (r, v) => (!r ? '' : r.type === 'slider' ? r.fmt(+v) : r.type === 'toggle' ? (v ? translate("ON") : translate("OFF")) : (r.type === 'seg' || r.type === 'select') ? optLabel(r, v).toUpperCase() : '');
     const showPreview = (key, { label, help, tab } = {}) => {
       if (P.key === key) return;
       P.key = key;
@@ -1953,6 +2003,7 @@ export class Menus {
     };
 
     const buildRows = (dirSign) => {
+      for (const c of controls.values()) c.dispose?.();
       rowsEl.innerHTML = '';
       controls.clear();
       const s = this._settings();
@@ -1960,6 +2011,7 @@ export class Menus {
       tab.rows.forEach((r, i) => {
         let ctrl;
         if (r.type === 'link') ctrl = { el: h('span', { class: 'iw-row__link' }, translate("VIEW"), h('i', { html: GLYPHS.next })), accept: () => { this._sfx('ui_click'); this._go('howto'); } };
+        else if (r.type === 'select') ctrl = this._dropdown(r, s[r.key]);
         else if (r.type === 'slider') ctrl = this._slider(r, s[r.key]);
         else if (r.type === 'toggle') ctrl = this._toggle(r, s[r.key]);
         else {
@@ -1973,7 +2025,11 @@ export class Menus {
           h('div', { class: 'iw-row__label' }, h('i', { class: 'iw-row__pip' }), r.label),
           h('div', { class: 'iw-row__ctrl' }, ctrl.el));
         row._key = r.key;
-        if (r.key === 'language') { row.classList.add('iw-row--language'); ctrl.el.setAttribute('role','group'); ctrl.el.setAttribute('aria-label',translate('Language')); }
+        if (r.type === 'select') {
+          row.classList.add('iw-row--select'); row.tabIndex = 0; row.setAttribute('role', 'button');
+          row.setAttribute('aria-haspopup', 'listbox'); row.setAttribute('aria-expanded', 'false');
+          row.setAttribute('aria-controls', 'settings-' + r.key + '-options');
+        }
         this._bind(row, { id: 'set-' + r.key, type: 'row', accept: ctrl.accept, adjust: ctrl.adjust });
         if (r.type !== 'link') controls.set(r.key, ctrl);
         rowsEl.appendChild(row);
@@ -2032,13 +2088,15 @@ export class Menus {
       h('div', { class: 'iw-scrim-left' }),
       this._header(translate("SETTINGS"), { sub: translate("Changes apply instantly") }),
       panel, card,
-      this._prompts([[['←', '→'], 'DPad', translate("Adjust")], [['Q', 'E'], null, translate("Tabs")], ['Esc', 'B', translate("Back")]]));
+      this._prompts([[['Enter', '←', '→'], 'A', translate("SELECT")], [['Q', 'E'], null, translate("Tabs")], ['Esc', 'B', translate("Back")]]));
     el.querySelector('.iw-prompts').children[1].querySelector('.iw-padg').innerHTML = padGlyph('LB') + padGlyph('RB');
     return {
       el,
       initial: () => rowsEl.querySelector('[data-nav]'),
       afterMount: () => movePill(true),
       onFocus: (f) => {
+        const list = f.closest('[role="listbox"]');
+        if (list) list.setAttribute('aria-activedescendant', f.id);
         if (f._key) showPreview(f._key);
         else if (f.dataset.nav === 'tab') { const t = SETTINGS_TABS[tabBtns.indexOf(f)]; if (t) showPreview('_tab_' + t.id, { label: t.label, help: TAB_BLURB[t.id], tab: t }); }
         else if (f.dataset.id === 'reset') showPreview('_reset', { label: translate("Reset"), help: translate("Restore every setting to its original value.") });
@@ -2053,6 +2111,7 @@ export class Menus {
         } else if (P.cur && (key === 'master') && (P.key === 'music' || P.key === 'sfx')) safeCall(() => P.cur.set(this._settings()[P.key], this._settings()));
       },
       onNav: (dir) => {
+        if (this._modal) return dir === 'tab_prev' || dir === 'tab_next';
         if (dir === 'tab_prev' || dir === 'tab_next') {
           const onTab = this._focus && this._focus.dataset.nav === 'tab';
           if (selectTab(tabIdx + (dir === 'tab_next' ? 1 : -1), true)) this._setFocus(onTab ? tabBtns[tabIdx] : rowsEl.querySelector('[data-nav]'));
@@ -2061,7 +2120,9 @@ export class Menus {
         }
         return false;
       },
+      destroy: () => { for (const c of controls.values()) c.dispose?.(); },
       tick: (dt) => {
+        for (const c of controls.values()) c.tick?.();
         if (P.cur && P.cur.tick) P.cur.tick(dt);
         if (resetArmed > 0) {
           resetArmed -= dt;

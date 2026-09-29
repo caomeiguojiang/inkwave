@@ -12,7 +12,8 @@ try {
  await page.evaluate(()=>{window.gameBeforeSwitch=__G;window.rendererBeforeSwitch=__G.renderer;__G.menus.show('settings');});
  const before=await page.evaluate(()=>performance.timeOrigin);
  for(const [index,lang,label] of [[1,'en','SETTINGS'],[2,'zh-Hans','设置'],[3,'zh-Hant','設定'],[4,'ja','設定'],[2,'zh-Hans','设置']]){
-  await page.click(`[data-id="set-language"] .iw-seg__opt:nth-of-type(${index+2})`);
+  await page.click('[data-id="set-language"]');
+  await page.click(`.iw-select__option[data-value="${lang}"]`);
   await page.waitForFunction(code=>document.documentElement.lang===code,{timeout:10000},lang);
   await page.evaluate(()=>document.fonts.ready);
   assert.equal(await page.evaluate(()=>performance.timeOrigin),before,'page reloaded');
@@ -29,14 +30,30 @@ try {
   await page.screenshot({path:`.local/native-i18n/${lang}-settings.png`});results.push({lang,focus:state.focus});
  }
  // The same focused row must respond to the engine's keyboard/gamepad navigation path.
- await page.evaluate(()=>__G.menus.nav('right'));
+ await page.click('[data-id="set-language"]');
+ await page.keyboard.press('ArrowDown');
+ assert.equal(await page.evaluate(()=>document.documentElement.lang),'zh-Hans','browsing must not apply');
+ await page.keyboard.press('Escape');
+ assert.equal(await page.evaluate(()=>__G.menus._focus.dataset.id),'set-language');
+ assert.equal(await page.evaluate(()=>document.querySelector('[data-id="set-language"]').getAttribute('aria-expanded')),'false');
+ await page.keyboard.press('Enter');
+ await page.keyboard.press('ArrowDown');
+ await page.keyboard.press('Enter');
  await page.waitForFunction(()=>document.documentElement.lang==='zh-Hant');
- await page.evaluate(()=>__G.menus.nav('left'));
- await page.waitForFunction(()=>document.documentElement.lang==='zh-Hans');
- await page.setViewport({width:960,height:540});
- await new Promise(ok=>setTimeout(ok,400));
- assert.ok(await page.evaluate(()=>{const el=document.querySelector('.iw-row--language .iw-seg');return el.scrollWidth<=el.clientWidth+1;}),'language row overflows at 960x540');
- await page.screenshot({path:'.local/native-i18n/zh-Hans-settings-960.png'});
+ await page.click('[data-id="set-language"]');
+ await page.mouse.click(20,20);
+ assert.equal(await page.evaluate(()=>__G.menus.current),'settings','outside click must only close list');
+ assert.equal(await page.evaluate(()=>document.documentElement.lang),'zh-Hant');
+ for (const [width,height] of [[1440,900],[960,540]]) {
+  await page.setViewport({width,height});
+  await page.click('[data-id="set-language"]');
+  await new Promise(ok=>setTimeout(ok,400));
+  assert.ok(await page.evaluate(()=>{const r=document.querySelector('.iw-select-popup:not(.is-leaving) .iw-select__list').getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight;}),'dropdown outside viewport');
+  await page.screenshot({path:`.local/native-i18n/language-dropdown-${width}.png`});
+  await page.keyboard.press('Escape');
+ }
+ await page.click('[data-id="set-language"]');
+ await page.click('.iw-select__option[data-value="zh-Hans"]');
  await page.reload({waitUntil:'networkidle0',timeout:120000});
  await page.waitForFunction('window.__G?.menus?.current === "main"',{timeout:120000});
  assert.equal(await page.evaluate(()=>document.documentElement.lang),'zh-Hans');

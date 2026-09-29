@@ -16,8 +16,10 @@ views. Start with `docs/CONTRACTS.md`, `docs/NET.md` and `docs/BOSS.md` for owne
 - `src/net/session.js`: rooms and players; never recreate it for a presentation preference.
 
 Use the existing controls and preview panel when extending settings. The language
-row is in General, with Auto and four native-language names. Left/right, confirm
-and pointer selection use the same native control behavior as other settings.
+row is in General, with a styled dropdown containing Auto and four native-language
+names. Enter/A opens it; up/down browse without applying, Enter/A confirms, and
+Escape/B or an outside click cancels. It uses the existing modal/focus navigation,
+restores the row focus, and keeps the popup inside the viewport.
 
 ## i18next
 
