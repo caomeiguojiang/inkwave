@@ -4,3 +4,5 @@ node_modules/
 .wrangler/
 .env*
 .DS_Store
+.local/
+tools/.net-test-assertok.generated.mjs

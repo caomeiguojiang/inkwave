@@ -10,7 +10,10 @@
     "net-test": "node tools/net-test.mjs",
     "build": "python3 tools/build-dist.py",
     "release": "./tools/release-pages.sh",
-    "deploy-relay": "cd server && wrangler deploy"
+    "deploy-relay": "cd server && wrangler deploy",
+    "build:assertok": "node tools/build-assertok.mjs",
+    "test:relay": "node --test server-node/test.mjs",
+    "test:web": "node tools/verify-assertok.mjs"
   },
   "keywords": [
     "game",
@@ -28,6 +31,8 @@
     "three": "^0.186.0"
   },
   "devDependencies": {
+    "acorn": "8.15.0",
+    "opencc-js": "1.0.5",
     "puppeteer-core": "^25.12.0",
     "wrangler": "^4.141.0"
   },

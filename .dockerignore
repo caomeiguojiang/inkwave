@@ -1,0 +1,7 @@
+**
+!server-node/
+!server-node/index.js
+!server-node/package.json
+!server-node/package-lock.json
+!dist/
+!dist/**

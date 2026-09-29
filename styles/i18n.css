@@ -1,0 +1,6 @@
+.iw-language { position:fixed; top:10px; right:12px; z-index:100; display:flex; gap:6px; align-items:center; padding:6px 9px; border:1px solid #ffffff55; border-radius:8px; color:#fff; background:#15121ce8; font:14px system-ui,sans-serif; }
+.iw-language[hidden] { display:none; }
+.iw-language select { max-width:140px; color:#fff; background:#15121c; border:0; font:inherit; cursor:pointer; }
+html:lang(zh),html:lang(ja) { --font-body:'Rubik','Noto Sans CJK SC','Microsoft YaHei','PingFang SC','Yu Gothic',system-ui,sans-serif; }
+html:lang(zh) .iw-ui,html:lang(ja) .iw-ui,html:lang(zh) .iw-hud,html:lang(ja) .iw-hud { font-family:'Rubik','Microsoft YaHei','PingFang TC','Yu Gothic',system-ui,sans-serif; }
+html:lang(zh) .iw-btn__label,html:lang(ja) .iw-btn__label { letter-spacing:.02em; }

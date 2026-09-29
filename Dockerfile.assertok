@@ -1,0 +1,11 @@
+FROM node:24.14.0-bookworm-slim@sha256:d8e448a56fc63242f70026718378bd4b00f8c82e78d20eefb199224a4d8e33d8
+WORKDIR /app
+COPY server-node/package.json server-node/package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund && npm cache clean --force
+COPY server-node/index.js ./index.js
+COPY dist ./public
+USER node
+ENV HOST=0.0.0.0 PORT=8787 STATIC_ROOT=/app/public
+EXPOSE 8787
+HEALTHCHECK --interval=20s --timeout=3s --start-period=5s --retries=3 CMD node -e "fetch('http://127.0.0.1:8787/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+CMD ["node", "index.js"]
