@@ -2097,6 +2097,9 @@ export class Menus {
       onFocus: (f) => {
         const list = f.closest('[role="listbox"]');
         if (list) list.setAttribute('aria-activedescendant', f.id);
+        const selecting = f._key === 'language' || !!list;
+        el.querySelector('.iw-prompts').firstChild.replaceWith(this._hint(
+          selecting ? 'Enter' : ['←', '→'], selecting ? 'A' : 'DPad', translate(selecting ? 'SELECT' : 'Adjust')));
         if (f._key) showPreview(f._key);
         else if (f.dataset.nav === 'tab') { const t = SETTINGS_TABS[tabBtns.indexOf(f)]; if (t) showPreview('_tab_' + t.id, { label: t.label, help: TAB_BLURB[t.id], tab: t }); }
         else if (f.dataset.id === 'reset') showPreview('_reset', { label: translate("Reset"), help: translate("Restore every setting to its original value.") });
