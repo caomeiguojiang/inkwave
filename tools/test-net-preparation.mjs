@@ -16,6 +16,7 @@ try {
   await pages[0].waitForFunction('__G.net.lobby.players.length === 3');
   const slow = await pages[2].evaluate(() => {
     // Simulate an unresolved dependency, without consuming additional GPU work.
+    __G.net.on('error', () => setTimeout(() => { window.preparationErrorUI = document.body.innerText; }, 200));
     __G.game.startNetMatch = () => new Promise(() => {});
     return __G.net.myId;
   });
@@ -31,7 +32,8 @@ try {
   }), slow)));
   assert.ok(views.every(v => v.excluded && !v.staleOwner));
   assert.deepEqual(views[0].owners, views[1].owners);
-  assert.match(await pages[2].evaluate(() => __G.net.error), /without you/);
+  assert.equal(await pages[2].evaluate(() => __G.net.error), 'Loading took too long. This match started without you.');
+  assert.equal(await pages[2].evaluate(async () => window.preparationErrorUI?.includes((await import('./src/i18n/runtime.js')).translate(__G.net.error))), true);
   assert.deepEqual(errors, []);
   console.log('Two ready clients play; timed-out guest excluded; ownership agrees', views);
 } finally { await browser.close(); }

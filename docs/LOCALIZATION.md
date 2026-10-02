@@ -100,3 +100,11 @@ Set `INKWAVE_URL` for browser checks and `--url` for the multiplayer test. Scree
 are local artifacts, not proof of physical-controller or Safari-device acceptance.
 When merging upstream, review changed UI copy and control structure normally. Do
 not restore the retired build-time AST translation adapter or floating selector.
+
+## Upstream 2026-10-03
+
+Zone Control, equipment, practice and new stage text are in the same four catalogs.
+Configuration labels use getters; HUD/diorama labels use explicit bindings and
+cache invalidation on language change. No runtime literal matching is added.
+Network errors remain stable identifiers until rendered by menus or toasts.
+See [integration notes](upstream-20261003.md) for verification scope.

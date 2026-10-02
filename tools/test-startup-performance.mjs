@@ -32,6 +32,7 @@ try {
   const textures = await page.evaluate(async () => {
     const THREE = await import('three');
     const {createTextureLibrary} = await import('./src/world/texlib.js');
+    const {STAGE_SURFACES} = await import('./src/world/stages/surfaces.js');
     const r = new THREE.WebGLRenderer();
     const full = await createTextureLibrary(r,{size:64});
     const selective = await createTextureLibrary(r,{size:64,stage:'tidewater'});
@@ -50,15 +51,16 @@ try {
     let mismatch = 0, emptyAttachments = 0;
     const compare = index => { for(let k=0;k<3;k++){const a=read(full,index,k),b=read(selective,index,k); if(!a.some(x=>x!==0))emptyAttachments++; for(let j=0;j<a.length;j++)if(a[j]!==b[j])mismatch++;} };
     compare(commonIndex);
-    await Promise.all([selective.ensureStage('cargo'),selective.ensureStage('cargo')]);
-    for (const name of selective.names) if(name.startsWith('cargo:')) compare(selective.layers[name]);
+    const stages=[...new Set(STAGE_SURFACES.map(s=>s.stage))];
+    await Promise.all(stages.flatMap(stage=>[selective.ensureStage(stage),selective.ensureStage(stage)]));
+    for (const surface of STAGE_SURFACES) compare(selective.layers[surface.name]);
     const count = selective.stats.generatedLayers;
     await selective.ensureStage('tidewater');
-    const report = {initialCount,finalCount:count,total:selective.stats.totalLayers,mismatch,emptyAttachments,revisitCount:selective.stats.generatedLayers};
+    const report = {expectedMissing:STAGE_SURFACES.filter(s=>s.stage!=='tidewater').length,initialCount,finalCount:count,total:selective.stats.totalLayers,mismatch,emptyAttachments,revisitCount:selective.stats.generatedLayers};
     r.setRenderTarget(null); full.dispose();selective.dispose();r.dispose();r.forceContextLoss();
     return report;
   });
-  assert.equal(textures.total-textures.initialCount,3);
+  assert.equal(textures.total-textures.initialCount,textures.expectedMissing);
   assert.equal(textures.finalCount,textures.total);
   assert.equal(textures.revisitCount,textures.total);
   assert.equal(textures.mismatch,0);

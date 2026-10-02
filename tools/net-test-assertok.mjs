@@ -15,6 +15,26 @@ if(slowIndex>=0){
   source=source.replace('const tStart = Date.now();', `await ev(1, ms => { const game=__G.game, original=game.startNetMatch.bind(game); game.startNetMatch=async (...args)=>{await original(...args);await new Promise(r=>setTimeout(r,ms));}; }, ${delay});\n  const tStart = Date.now();`);
 }
 const file=resolve('tools/.net-test-assertok.generated.mjs');
+// Zone Control deliberately ignores lobby.duration. Shorten its test-only rules
+// before the host emits the config, just as upstream shortens Turf War above.
+source=source.replace('  const tStart = Date.now();', `
+  if (FULL && MODE === 'zones') await ev(0, async () => { (await import('/src/config.js')).ZONES.duration = 40; });
+  const tStart = Date.now();`);
+// Exercise custom equipment across the room protocol, including the new kits.
+source=source.replace("  const lobbies = await Promise.all", `
+  for (let i=0;i<N;i++) await ev(i, async i => {
+    const {WEAPON_ORDER,SUB_ORDER,SPECIAL_ORDER}=await import('/src/config.js');
+    __G.net.setMe({weapon:WEAPON_ORDER[(i+6)%WEAPON_ORDER.length],sub:SUB_ORDER[(i+6)%SUB_ORDER.length],special:SPECIAL_ORDER[(i+8)%SPECIAL_ORDER.length]});
+  }, i);
+  await new Promise(r=>setTimeout(r,150));
+  const lobbies = await Promise.all`);
+source=source.replace("  say('--- consistency');", `
+  const equipment=await Promise.all(pages.filter(Boolean).map(p=>p.evaluate(()=>__G.match.actors.map(a=>[a.nid,a.weaponId,a.subId,a.specialId]).sort((a,b)=>a[0]-b[0]))));
+  if(new Set(equipment.map(v=>JSON.stringify(v))).size!==1)throw Error('Equipment differs between clients');
+  say('equipment agrees',JSON.stringify(equipment[0]));
+  say('--- consistency');`);
+source=source.replace('w: __inkwave.match.result.winner,', 'w: __inkwave.match.result.winner, zones: __inkwave.match.result.mode === \"zones\" ? {counts:__inkwave.match.result.counts,penalty:__inkwave.match.result.penalty,reason:__inkwave.match.result.reason} : null,');
+source=source.replace("    say('results', res.join('  '),", "    if(new Set(res).size!==1)throw Error('Final results differ');\n    say('results', res.join('  '),");
 if (process.argv.includes('--language-switch')) {
   const marker="  say('--- consistency');";
   if (!source.includes(marker)) throw Error('Upstream test changed: review language test insertion');

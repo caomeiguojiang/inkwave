@@ -2,17 +2,13 @@
 // envelope the relay never parses: "b|<json>" broadcast, "s|<to>|<json>" to one member; incoming "m|<from>|<json>".
 // Control frames are JSON objects (welcome / join / leave / err / pong).
 
-export const PROTO = 1;
+export const PROTO = 2;
 
-// Where the relay lives: ?relay=… wins; a page served from this machine or the LAN talks to a local `wrangler dev`
-// relay on :8787; the public site talks to the deployed Worker.
+// Web and relay share the current origin; ?relay=… is an explicit development override.
 export const PROD_RELAY = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
 export function relayURL() {
   const q = new URLSearchParams(location.search).get('relay');
-  if (q) return q.replace(/\/$/, '');
-  const h = location.hostname;
-  const local = h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || /^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\./.test(h) || h.endsWith('.local');
-  return PROD_RELAY;
+  return q ? q.replace(/\/$/, '') : PROD_RELAY;
 }
 
 // Debug: simulate a real connection on localhost — ?netlag=ms (extra one-way delay on everything received),

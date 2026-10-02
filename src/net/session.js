@@ -5,7 +5,7 @@
 // sends one roster to everyone; every client builds the stage, reports ready, and the host says go — so intros start
 // together. In the match NetMatch (netmatch.js) does the replication.
 import { G, emit } from '../core/ctx.js';
-import { MAPS, WEAPONS, WEAPON_ORDER, MATCH, BOT_NAMES, TEAM_PALETTES, mapNoBots, mapBossOk, bossFallbackMap, noBotsStartBlock } from '../config.js';
+import { MAPS, WEAPONS, WEAPON_ORDER, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER, MATCH, ZONES, BOT_NAMES, TEAM_PALETTES, mapNoBots, mapBossOk, bossFallbackMap, noBotsStartBlock } from '../config.js';
 import { randomStyle } from '../game/character-style.js';
 import { Transport } from './transport.js';
 import { NetMatch } from './netmatch.js';
@@ -15,6 +15,8 @@ import { Preparation } from './preparation.js';
 // only mean a room code (28⁵ ≈ 17 M codes)
 const CODE_CHARS = 'BCEFGHJKLMNPQRTUVXYZ23456789';
 const TEAM = 4;
+// a loadout's sub / special: a known id, or null (= the weapon's own)
+const subOf = (id) => (SUBS[id] ? id : null), specialOf = (id) => (SPECIALS[id] ? id : null);
 
 export class NetSession {
   constructor() {
@@ -55,14 +57,15 @@ export class NetSession {
   _blankLobby() {
     const g = G.game;
     // palette: the room's team colours (index into TEAM_PALETTES) — the host's current menu colours carry into the room
-    // mode: 'turf' | 'boss' (Boss Battle: everyone is one squad vs HULLBREAKER — docs/BOSS.md)
+    // mode: 'turf' | 'zones' (Zone Control: the host runs the rules — zones.js) | 'boss' (Boss Battle: everyone is one
+    // squad vs HULLBREAKER — docs/BOSS.md)
     const map = g?.mapDef?.id || MAPS[0].id;
     return { map, time: g?.time || 'day', duration: g?.settings?.matchLength || MATCH.defaultDuration, bots: !mapNoBots(map), difficulty: g?.settings?.difficulty || 'normal', palette: g?.paletteIndex?.() ?? 0, mode: 'turf', players: [], maxPlayers: TEAM * 2 };
   }
 
   _profile() {
     const p = G.game?.profile || {};
-    return { name: (p.name || 'Player').slice(0, 16), weapon: WEAPONS[p.weapon] ? p.weapon : 'shooter', style: p.style || null };
+    return { name: (p.name || 'Player').slice(0, 16), weapon: WEAPONS[p.weapon] ? p.weapon : 'shooter', sub: subOf(p.sub), special: specialOf(p.special), style: p.style || null };
   }
 
   // ------------------------------------------------------------------ rooms
@@ -100,12 +103,12 @@ export class NetSession {
     this.lobby = this._blankLobby();
     this._botsPref = this.isHost ? true : null;   // a new room fills with bots unless its stage forbids them
     if (this.isHost) {
-      this.lobby.players = [this._newPlayer(this.myId, name || me.name, { weapon: me.weapon, style: me.style })];
+      this.lobby.players = [this._newPlayer(this.myId, name || me.name, { weapon: me.weapon, sub: me.sub, special: me.special, style: me.style })];
       this._fixTeams();
     }
     this._setState('lobby');
     // tell the host who we are (the host already knows itself)
-    if (!this.isHost) tr.sendTo(this.hostId, { k: 'me', name: name || me.name, weapon: me.weapon, style: me.style });
+    if (!this.isHost) tr.sendTo(this.hostId, { k: 'me', name: name || me.name, weapon: me.weapon, sub: me.sub, special: me.special, style: me.style });
     this._pushLobby();
   }
 
@@ -126,7 +129,7 @@ export class NetSession {
     clearInterval(this._prepareTimer);
     this.match?.dispose(); this.match = null;
     this._startCfg = null;
-    this.error = e?.message || 'Could not connect';
+    this.error = e?.message || "Could not connect";
     this.tr?.close(); this.tr = null;
     this._setState('error');
     this._emit('error', { message: this.error });
@@ -175,7 +178,7 @@ export class NetSession {
   }
 
   _newPlayer(id, name, o) {
-    return { id, name: (name || 'Player').slice(0, 16), team: 'auto', weapon: WEAPONS[o.weapon] ? o.weapon : 'shooter', style: o.style || randomStyle(), ready: false, host: id === this.hostId, ping: 0 };
+    return { id, name: (name || 'Player').slice(0, 16), team: 'auto', weapon: WEAPONS[o.weapon] ? o.weapon : 'shooter', sub: subOf(o.sub), special: specialOf(o.special), style: o.style || randomStyle(), ready: false, host: id === this.hostId, ping: 0 };
   }
 
   // host: honour team requests while keeping ≤ 4 a side, then place everyone still on 'auto' on the smaller side
@@ -194,7 +197,7 @@ export class NetSession {
   }
   _wireLobby() {
     const l = this.lobby;
-    return { map: l.map, time: l.time, duration: l.duration, bots: l.bots, difficulty: l.difficulty, palette: l.palette, mode: l.mode, players: l.players.map(({ id, name, team, weapon, style, ready, ping }) => ({ id, name, team, weapon, style, ready, ping })) };
+    return { map: l.map, time: l.time, duration: l.duration, bots: l.bots, difficulty: l.difficulty, palette: l.palette, mode: l.mode, players: l.players.map(({ id, name, team, weapon, sub, special, style, ready, ping }) => ({ id, name, team, weapon, sub, special, style, ready, ping })) };
   }
   // local view: mark you + host
   _pushLobby() {
@@ -208,6 +211,8 @@ export class NetSession {
     const o = {};
     if (ch.name != null) o.name = String(ch.name).slice(0, 16);
     if (ch.weapon && WEAPONS[ch.weapon]) o.weapon = ch.weapon;
+    if (ch.sub !== undefined) o.sub = subOf(ch.sub);
+    if (ch.special !== undefined) o.special = specialOf(ch.special);
     if (ch.style) o.style = ch.style;
     if (ch.ready != null) o.ready = !!ch.ready;
     if (ch.team === 0 || ch.team === 1 || ch.team === 'auto') o.team = ch.team;
@@ -215,7 +220,7 @@ export class NetSession {
     else {
       // optimistic local echo for things the host won't refuse
       const me = this.lobby.players.find((p) => p.id === this.myId);
-      if (me) { for (const k of ['name', 'weapon', 'style', 'ready']) if (o[k] !== undefined) me[k] = o[k]; this._pushLobby(); }
+      if (me) { for (const k of ['name', 'weapon', 'sub', 'special', 'style', 'ready']) if (o[k] !== undefined) me[k] = o[k]; this._pushLobby(); }
       this.tr.sendTo(this.hostId, { k: 'me', ...o });
     }
   }
@@ -225,6 +230,8 @@ export class NetSession {
     if (!p) return;
     if (o.name) p.name = o.name;
     if (o.weapon && WEAPONS[o.weapon]) p.weapon = o.weapon;
+    if (o.sub !== undefined) p.sub = subOf(o.sub);
+    if (o.special !== undefined) p.special = specialOf(o.special);
     if (o.style) p.style = o.style;
     if (o.ready != null) p.ready = !!o.ready;
     if (o.ping != null) p.ping = Math.round(o.ping);
@@ -246,7 +253,7 @@ export class NetSession {
     if (s.bots != null) this._botsPref = !!s.bots;
     if (s.difficulty && ['easy', 'normal', 'hard'].includes(s.difficulty)) l.difficulty = s.difficulty;
     if (Number.isInteger(s.palette) && s.palette >= 0 && s.palette < TEAM_PALETTES.length) l.palette = s.palette;
-    if (s.mode === 'turf' || s.mode === 'boss') l.mode = s.mode;
+    if (s.mode === 'turf' || s.mode === 'zones' || s.mode === 'boss') l.mode = s.mode;
     // stage rules (config MAPS flags): a Boss Battle never runs on a noBoss stage — picking one in boss mode is refused,
     // switching a room on one to boss mode moves it to a boss-eligible stage; a noBots stage forces bots off (the host's
     // own choice comes back on the next stage)
@@ -281,16 +288,20 @@ export class NetSession {
       const humans = boss ? l.players : l.players.filter((p) => p.team === team);
       const weapons = [...WEAPON_ORDER].sort(() => Math.random() - 0.5);
       let slot = 0;
-      for (const p of humans) roster.push({ nid: nid++, owner: p.id, bot: false, team, slot: slot++, name: p.name, weapon: p.weapon, style: p.style });
+      for (const p of humans) roster.push({ nid: nid++, owner: p.id, bot: false, team, slot: slot++, name: p.name, weapon: p.weapon, sub: subOf(p.sub), special: specialOf(p.special), style: p.style });
       if (bots) {
         while (slot < (boss ? TEAM * 2 : TEAM)) {
           const used = new Set(roster.filter((r) => r.team === team).map((r) => r.weapon));
           const wpn = weapons.find((w) => !used.has(w)) || weapons[slot % weapons.length];
-          roster.push({ nid: nid++, owner: this.myId, bot: true, team, slot: slot++, name: names.pop() || 'Bot', weapon: wpn, style: randomStyle() });
+          // bots carry a random sub / special about half the time, as offline (else their weapon's own)
+          const sub = Math.random() < 0.5 ? null : SUB_ORDER[(Math.random() * SUB_ORDER.length) | 0];
+          const special = Math.random() < 0.5 ? null : SPECIAL_ORDER[(Math.random() * SPECIAL_ORDER.length) | 0];
+          roster.push({ nid: nid++, owner: this.myId, bot: true, team, slot: slot++, name: names.pop() || 'Bot', weapon: wpn, sub, special, style: randomStyle() });
         }
       }
     }
-    const cfg = { k: 'start', roster, map: l.map, time: l.time, duration: l.duration, difficulty: l.difficulty, palette: l.palette, mode: boss ? 'boss' : 'turf', host: this.myId, id: Math.random().toString(36).slice(2, 8) };
+    // (Zone Control always runs its own 5:00 + overtime, as offline)
+    const cfg = { k: 'start', roster, map: l.map, time: l.time, duration: !boss && l.mode === 'zones' ? ZONES.duration : l.duration, difficulty: l.difficulty, palette: l.palette, mode: boss ? 'boss' : l.mode === 'zones' ? 'zones' : 'turf', host: this.myId, id: Math.random().toString(36).slice(2, 8) };
     this.tr.lock(true);
     this.tr.broadcast(cfg);
     this._begin(cfg);
@@ -310,7 +321,7 @@ export class NetSession {
       if (this.state !== 'starting' || this._startCfg !== cfg) return;
       if (this.isHost) this._checkPreparation();
       else if (performance.now() - this._preparation.started > 130000)
-        this._abortPreparation('Loading timed out. Please try again.');
+        this._abortPreparation("Loading timed out. Please try again.");
     }, 1000);
     this._emit('match', { phase: 'start' });
     // the lobby plays its 3·2·1 + super-jump launch first (resolves at once when the lobby isn't on screen)
@@ -351,7 +362,7 @@ export class NetSession {
       this._acceptGo(message);
     } else if (decision.action === 'abort') {
       this.tr?.broadcast({ k: 'load-abort', id: cfg.id });
-      this._abortPreparation('Not enough players finished loading. Please try again.');
+      this._abortPreparation("Not enough players finished loading. Please try again.");
     }
   }
 
@@ -363,7 +374,7 @@ export class NetSession {
   _acceptGo(message) {
     const excluded = Array.isArray(message.excluded) ? message.excluded : [];
     if (excluded.includes(this.myId)) {
-      this._abortPreparation('Loading took too long. This match started without you.');
+      this._abortPreparation("Loading took too long. This match started without you.");
       return;
     }
     this._excluded = new Set(excluded);
@@ -402,7 +413,7 @@ export class NetSession {
           const l = d.l;
           this.lobby.map = l.map; this.lobby.time = l.time; this.lobby.duration = l.duration; this.lobby.bots = l.bots; this.lobby.difficulty = l.difficulty;
           if (Number.isInteger(l.palette)) this.lobby.palette = l.palette;
-          this.lobby.mode = l.mode === 'boss' ? 'boss' : 'turf';
+          this.lobby.mode = l.mode === 'boss' || l.mode === 'zones' ? l.mode : 'turf';
           const prev = new Map(this.lobby.players.map((p) => [p.id, p]));
           this.lobby.players = l.players.map((p) => ({ ...p, host: p.id === this.hostId }));
           for (const p of this.lobby.players) if (!prev.has(p.id)) this._emit('join', { player: p });
@@ -414,7 +425,7 @@ export class NetSession {
       case 'start': if (from === this.hostId && this.state === 'lobby') this._begin(d); break;
       case 'ready': if (this.isHost && this._startCfg && d.id === this._startCfg.id) this._markReady(from); break;
       case 'go': if (from === this.hostId && this.state === 'starting' && d.id === this._startCfg?.id) this._acceptGo(d); break;
-      case 'load-abort': if (from === this.hostId && this.state === 'starting' && d.id === this._startCfg?.id) this._abortPreparation('Not enough players finished loading. Please try again.'); break;
+      case 'load-abort': if (from === this.hostId && this.state === 'starting' && d.id === this._startCfg?.id) this._abortPreparation("Not enough players finished loading. Please try again."); break;
       default: if (!this._excluded?.has(from)) this.match?.onMessage(from, d);
     }
   }

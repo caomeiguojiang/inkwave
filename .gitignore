@@ -6,3 +6,17 @@ node_modules/
 .DS_Store
 .local/
 tools/.net-test-assertok.generated.mjs
+# botlab scratch (profiles, locks)
+.botlab/
+# your own music: drop files into songs/ (see songs/README.md); they and the generated manifest stay local
+songs/**/*.mp3
+songs/**/*.m4a
+songs/**/*.aac
+songs/**/*.ogg
+songs/**/*.opus
+songs/**/*.wav
+songs/**/*.flac
+songs/manifest.json
+
+# Native packaging stays separate from the web release.
+desktop-dist/

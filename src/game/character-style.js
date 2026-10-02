@@ -112,7 +112,7 @@ export function styleSwatch(st) {
 
 /**
  * Write a resolved style's colours into a character uniform bundle (makeCharUniforms()): outfit colourway + pattern,
- * iris gradient, and the optional face uniforms. The Character constructor calls this.
+ * iris gradient, and the optional face uniforms. The Character constructor calls this (see docs/HALYARD.md request).
  */
 export function applyStyleUniforms(u, st) {
   const o = OUTFITS[st.outfit] || OUTFITS[0];

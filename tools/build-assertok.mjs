@@ -11,6 +11,7 @@ for(const locale of ['zh-Hans','zh-Hant','ja']){
     if(!messages[key] || vars(messages[key])!==vars(en[key])) throw Error(`Invalid ${locale} translation: ${key}`);
   }
 }
+execFileSync(process.execPath,['build/music-manifest.mjs'],{stdio:'inherit'});
 const python=process.platform==='win32'?'python':'python3';
 execFileSync(python,['-X','utf8','tools/check-fonts.py'],{stdio:'inherit'});
 execFileSync(python,['-X','utf8','tools/build-dist.py'],{stdio:'inherit'});
