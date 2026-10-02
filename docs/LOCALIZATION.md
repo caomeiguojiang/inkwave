@@ -22,6 +22,11 @@ Escape/B or an outside click cancels. It uses the existing modal/focus navigatio
 restores the row focus, and keeps the popup inside the viewport. Its recessed track,
 raised gradient face, bottom edge and press feedback reuse the existing setting
 materials in styles/ui.css. Selected state and browsing focus stay distinct.
+The popup uses the original `iw-panel` class, shared with the settings panel:
+inherit its gradient, inner edge, radius, blur and shadows instead of defining a
+separate popup material. Hide its halftone texture only on the dropdown; the original
+settings panel keeps its texture. Ordinary options are flat with subtle inset
+separators; selected and focused options retain their established feedback.
 Up from the first row returns to the active category; down from a category enters
 its first row. ResizeObserver keeps the category highlight aligned after resizing.
 

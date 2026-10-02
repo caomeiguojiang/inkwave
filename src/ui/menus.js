@@ -1849,7 +1849,7 @@ export class Menus {
       if (this._modal) return;
       trigger = el.closest('[data-nav]');
       const options = row.options;
-      const list = h('div', { class: 'iw-select__list', id: 'settings-' + row.key + '-options', role: 'listbox', tabindex: '-1', 'aria-label': row.label });
+      const list = h('div', { class: 'iw-panel iw-select__list', id: 'settings-' + row.key + '-options', role: 'listbox', tabindex: '-1', 'aria-label': row.label });
       popup = h('div', { class: 'iw-select-popup' }, list);
       const choices = options.map(([v, name], i) => {
         const option = h('button', { class: 'iw-select__option' + (v === current ? ' is-selected' : ''),
