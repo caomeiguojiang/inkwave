@@ -2,7 +2,7 @@
 
 Fork: https://github.com/caomeiguojiang/inkwave, branch `codex/assertok`.
 Original game: https://github.com/jaydendavisnc/inkwave, MIT, Jayden Davis.
-Upstream baseline: `53b9aa3fc2dc1201f14c87d165597ce37c12118a`.
+Upstream baseline: `3e9b5505ea900cb41851b4d75f16d488552b1794`.
 
 The fork integrates i18next into native menus, configuration metadata and HUD source.
 Language lives in Settings > General and switches live without reloading. CJK uses
@@ -10,7 +10,7 @@ locally hosted Swei Gothic regional fonts. Artwork, author credits and gameplay 
 `tools/build-assertok.mjs` validates translations and packages the normal source;
 it does not rewrite JavaScript or inject a selector. The transport uses a same-origin
 WebSocket endpoint. `server-node/` implements the upstream
-version-1 relay protocol and serves only `dist/`. It is a relay, not an authoritative
+fork protocol-2 relay contract and serves only `dist/`. It is a relay, not an authoritative
 game server; the room host still simulates the match. Rooms disappear on restart.
 
 ## Build and verify
@@ -56,7 +56,7 @@ copy require separate review.
 Keep `origin/main` as the upstream mirror; custom deployment work stays on
 `codex/assertok`. Configure `upstream` to the original URL above.
 Run `node tools/upstream-status.mjs` to fetch and show new commits without merging.
-From a clean deployment branch, create an update branch and review a merge:
+For compatible upstream changes, start a clean update branch and review a merge:
 
 ```powershell
 git switch -c codex/upstream-YYYYMMDD
@@ -73,3 +73,10 @@ auto-deploy untested author updates, and do not replace the fork with `reset --h
 
 Server-owned Compose, DNS, backup and release records live in the separate
 `lighthouse` repository under `server-admin/TencentLighthouse122/sites/inkwave/`.
+
+## Divergent upstream implementations
+
+Read [upstream maintenance](docs/UPSTREAM.md) before every sync. The reviewed
+upstream boundary is recorded separately from Git merge ancestry in
+`docs/upstream-review.json`. A reviewed-but-not-merged commit is not an outstanding
+feature request: it may contain intentionally replaced UI/architecture.

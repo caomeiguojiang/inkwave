@@ -1,0 +1,30 @@
+{
+  "repository": "https://github.com/jaydendavisnc/inkwave.git",
+  "last_reviewed_commit": "98ea29694ab3eebaaeaa995c2b525ac883a48de5",
+  "last_fully_merged_commit": "3e9b5505ea900cb41851b4d75f16d488552b1794",
+  "reviewed_on": "2026-10-08",
+  "mode": "selective",
+  "record": "docs/upstream-20261008.md",
+  "decisions": [
+    {
+      "area": "localization framework and UI",
+      "decision": "retain native i18next four-language settings, Swei regional fonts, and in-place HUD updates",
+      "upstream": "PR #12 custom dictionary and dropdown are intentionally not imported"
+    },
+    {
+      "area": "network error codes",
+      "decision": "ported and extended to protocol-2 Node/Worker relays and preparation failures",
+      "implementation": "1bb55ec"
+    },
+    {
+      "area": "special prompts",
+      "decision": "translated through existing four catalogs",
+      "implementation": "1bb55ec"
+    },
+    {
+      "area": "music manifest path",
+      "decision": "already present before this review",
+      "upstream": "PR #13"
+    }
+  ]
+}
