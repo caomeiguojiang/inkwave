@@ -13,6 +13,7 @@
 // create / join) · ?mocklat=ms (connect latency, default 700) · ?mockmatch=s (match length, default 6).
 // Debug handle (G.net.mock): auto(on) · add({ name, team, weapon, style, ready }) → id · drop(id) · ready(id, v) ·
 // emote(id, name) · swap(id, { weapon, style }) · fill(n) · clear() · host(id) · startMatch() · endMatch() · lose(msg)
+import { ERR, netError, codeFromText } from './errors.js';
 import { G } from '../core/ctx.js';
 import { WEAPON_ORDER, MAPS, TEAM_PALETTES, mapNoBots, mapBossOk, bossFallbackMap, noBotsStartBlock } from '../config.js';
 import * as LOOK from '../game/character-style.js';
@@ -34,6 +35,7 @@ export class MockNet {
     this.myId = null;
     this.hostId = null;
     this.error = null;
+    this.errorCode = null;
     this.lobby = null;
     this.startAt = 0;          // performance.now() when the match launches (state 'starting' → 'match')
     this.isMock = true;
@@ -109,9 +111,10 @@ export class MockNet {
     const fail = code.length < 4 ? 'Room not found' : FAIL[code];
     if (fail) {
       this.error = fail;
+      this.errorCode = codeFromText(fail) || ERR.CONNECT;
       this._setState('error');          // like the real session: a failed connect leaves state 'error' + G.net.error
-      this._emit('error', { message: fail });
-      throw new Error(fail);
+      this._emit('error', { code: this.errorCode, message: fail });
+      throw netError(this.errorCode, fail);
     }
     this.code = code;
     const hostId = this._id();
@@ -224,8 +227,9 @@ export class MockNet {
     if (this.state === 'offline') return;
     this._reset();
     this.error = msg;
+    this.errorCode = codeFromText(msg) || ERR.LOST;
     this._setState('error');
-    this._emit('error', { message: msg });
+    this._emit('error', { code: this.errorCode, message: msg });
   }
 
   _schedule() {
@@ -341,7 +345,7 @@ export class MockNet {
   _setState(s) {
     if (this.state === s) return;
     this.state = s;
-    if (s !== 'error' && s !== 'offline') this.error = null;
+    if (s !== 'error' && s !== 'offline') { this.error = null; this.errorCode = null; }
     this._emit('state', { state: s });
   }
 

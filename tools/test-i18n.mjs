@@ -9,7 +9,7 @@ test('browser locale negotiation',()=>{
 });
 test('release preserves identifiers and names; localizes presentation only',()=>{
   const menus=readFileSync('dist/src/ui/menus.js','utf8');
-  assert.ok(menus.includes("'Room not found':"));
+  assert.ok(menus.includes("[ERR.NOT_FOUND]:"));
   assert.ok(menus.includes('translate("PLAY")'));
   assert.ok(menus.includes('tagTitle(name)'));
   const tr=readFileSync('dist/src/net/transport.js','utf8');

@@ -108,3 +108,12 @@ Configuration labels use getters; HUD/diorama labels use explicit bindings and
 cache invalidation on language change. No runtime literal matching is added.
 Network errors remain stable identifiers until rendered by menus or toasts.
 See [integration notes](upstream-20261003.md) for verification scope.
+
+## Selective upstream 2026-10-08
+
+Keep the native four-language settings and in-place HUD updates. Relay/session logic
+now uses `src/net/errors.js` stable codes; resolve them to i18next message keys only
+at presentation boundaries. The legacy `e` field remains for protocol compatibility.
+Special-weapon prompts translate when evaluated, so the existing HUD sees the new
+text on the next update without reconstruction. Include `src/game/specials.js` in
+translation audits. See [integration notes](upstream-20261008.md).

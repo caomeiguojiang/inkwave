@@ -5,65 +5,65 @@
     {
       "path": "SC-Medium.woff2",
       "source_sha256": "987ba17f9ce68db5b85ecab27c4994db200f25b1ed324a2612c39ab1638c0e1a",
-      "sha256": "96dd568dcc4f0bc130c61baf42006f9d3c0fc4a8a803e9448da54dc0d054b8cf",
-      "bytes": 157044,
-      "characters": 985
+      "sha256": "504269948da640929a6a8c7edd78a04083d56bcb076a2341211ae19f525ab518",
+      "bytes": 157064,
+      "characters": 986
     },
     {
       "path": "SC-Bold.woff2",
       "source_sha256": "8eb0916b3f2ed1e7b093f15705918165efa8e35f1b58c8c61edb1d652bb56945",
-      "sha256": "53fb8b7f8dda840809b6cada8166ad2e2ab573d99829fc04565c48a147bc1c03",
-      "bytes": 158404,
-      "characters": 985
+      "sha256": "d868adfcdf268f65618d1e91a9688fef7962d0e476f9719cf43a01686297b170",
+      "bytes": 158308,
+      "characters": 986
     },
     {
       "path": "SC-Black.woff2",
       "source_sha256": "7a1ea988809fc80a8d5c9ecc2aa9ce983271343ac4a06db472d92ded61a2e8a4",
-      "sha256": "c603b7ef84537643b54a564bd528605ed17f43d96a579c8fe751f57773176535",
-      "bytes": 158584,
-      "characters": 985
+      "sha256": "22197d516de2094467a40c4b521e94180db153c27629ee63cfd0579c66e3cc9c",
+      "bytes": 158688,
+      "characters": 986
     },
     {
       "path": "TC-Medium.woff2",
       "source_sha256": "a66d84a2871c7af4d422d53df4fb94cb4227b15ea6da6a08ed1a9fa2ef187a2c",
-      "sha256": "4afa54d82dd28a89fb943ce54e2696aff2f1adbe41b2388378e576e1515a7e5f",
-      "bytes": 189232,
-      "characters": 1005
+      "sha256": "b4664e7a6dc48c4ff2a31f3d826f2c3429fd1d73847eeacaf34800edfa604e4f",
+      "bytes": 189364,
+      "characters": 1008
     },
     {
       "path": "TC-Bold.woff2",
       "source_sha256": "04e35c0fbf683fdac7a3a6a8c31a28df202ebc52315fd94fed03ebcdb6ccb6ef",
-      "sha256": "ff3deea2dedcefa4cc62ec179a23538a267498e89a7c9dd5841dc289a0e50c23",
-      "bytes": 190724,
-      "characters": 1005
+      "sha256": "4f8c4f855eb26687a4246af1dd8703e7dbd2a0900f68d57f1443a978c10bef1a",
+      "bytes": 190872,
+      "characters": 1008
     },
     {
       "path": "TC-Black.woff2",
       "source_sha256": "bedb105a1c4dc47752f6a3775a8e53ff76ee4ad42fbd161240e081286c23baf1",
-      "sha256": "4e02136eb3f539a48ed5f3dbe81204bf4617827f6b4f174eee35f8ab9f5e069e",
-      "bytes": 189304,
-      "characters": 1005
+      "sha256": "d416a38854f32875f3e00e99e42c3664c8634727598e3e5206c87b07d5721276",
+      "bytes": 189472,
+      "characters": 1008
     },
     {
       "path": "JP-Medium.woff2",
       "source_sha256": "a20285c2e829557254b4106ec71ce57f6d9f358e86e2f47bb455d4f9b87f7e14",
-      "sha256": "b63e18e2e5247c1c15000828f996a7f9fd08b1a8c7d4768d2abff16ef7305bfa",
-      "bytes": 97124,
-      "characters": 674
+      "sha256": "cf8948b66bdf8fd8664a4575879fcc8cb13cbabbbb385be07a55d2849f93d250",
+      "bytes": 97152,
+      "characters": 675
     },
     {
       "path": "JP-Bold.woff2",
       "source_sha256": "8b9cd6ffef242ee308bbe4ca470eae9804e42e6cd460416cb9102fcf8802544e",
-      "sha256": "2eac8af3ac1eba67372d0e7122076752b0d8f21b307d93dc7854a9472e1dd83e",
-      "bytes": 97552,
-      "characters": 674
+      "sha256": "dcd678e1de27dab58574e376648c76b69aad217d411946351efbce1e0d49cb4e",
+      "bytes": 97596,
+      "characters": 675
     },
     {
       "path": "JP-Black.woff2",
       "source_sha256": "1dfed5ea6f05c46d32b73064629f4c2e35c46f08eb538231164077d55427e3b5",
-      "sha256": "928ebb9527fdb4503ec9ca9e1a2dfd9ecac5307f8283147457ee32b370990057",
-      "bytes": 97152,
-      "characters": 674
+      "sha256": "f9e37d68f0de925c912fa1eb5bbf296f40f98daa57d1c50e0c9f30280bb33832",
+      "bytes": 97204,
+      "characters": 675
     }
   ]
 }

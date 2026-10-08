@@ -1,3 +1,4 @@
+import { ERR, codeFromText, errorMessageKey } from '../net/errors.js';
 import {translate,formatMessage,onLanguageChanged,LANGUAGES,LANGUAGE_NAMES} from '../i18n/runtime.js';
 // INKWAVE — front-end menus (contract: docs/CONTRACTS.md §3).
 //   const menus = new Menus(rootEl, api);
@@ -47,12 +48,12 @@ const EMOTES = [
 const TITLE_ADJ = ["Fresh", "Inky", "Turf", "Splashy", "Rad", "Sneaky", "Deep-Sea", "Glossy", "Tidal", "Zesty", "Mighty", "Soggy", "Speedy", "Salty", "Bubbly", "Snazzy", "Drippy", "Sunny"];
 const TITLE_NOUN = ["Squidkid", "Inkling", "Turf Boss", "Wave Rider", "Splatter", "Tentacle", "Drip Lord", "Sprayer", "Rookie", "Legend", "Deck Hand", "Sea Pickle", "Kelp Fan", "Ink Slinger", "Plaza Star", "Harbor Kid"];
 const JOIN_ERR = {
-  'Room not found': { get title() { return translate("ROOM NOT FOUND"); }, get text() { return translate("No room uses that code. Double-check it with your friend — rooms close when everyone leaves."); }, icon: 'question' },
-  'Room is full': { get title() { return translate("ROOM IS FULL"); }, get text() { return translate("All 8 spots are taken. Ask the host to make space, or open a room of your own."); }, icon: 'users' },
-  'Match in progress': { get title() { return translate("MATCH IN PROGRESS"); }, get text() { return translate("They are mid-match right now. Try again in a few minutes — the room reopens after the results."); }, icon: 'clock' },
-  'Could not connect': { get title() { return translate("CAN’T CONNECT"); }, get text() { return translate("The INKWAVE servers didn’t answer. Check your connection, then try again."); }, icon: 'signal' },
-  'Room code taken': { get title() { return translate("TRY AGAIN"); }, get text() { return translate("That room code was just taken. Give it another go."); }, icon: 'reset' },
-  'Lost connection to the room': { get title() { return translate("CONNECTION LOST"); }, get text() { return translate("The link to the room dropped. Check your connection and join again."); }, icon: 'signal' },
+  [ERR.NOT_FOUND]: { get title() { return translate("ROOM NOT FOUND"); }, get text() { return translate("No room uses that code. Double-check it with your friend — rooms close when everyone leaves."); }, icon: 'question' },
+  [ERR.FULL]: { get title() { return translate("ROOM IS FULL"); }, get text() { return translate("All 8 spots are taken. Ask the host to make space, or open a room of your own."); }, icon: 'users' },
+  [ERR.IN_PROGRESS]: { get title() { return translate("MATCH IN PROGRESS"); }, get text() { return translate("They are mid-match right now. Try again in a few minutes — the room reopens after the results."); }, icon: 'clock' },
+  [ERR.CONNECT]: { get title() { return translate("CAN’T CONNECT"); }, get text() { return translate("The INKWAVE servers didn’t answer. Check your connection, then try again."); }, icon: 'signal' },
+  [ERR.CODE_TAKEN]: { get title() { return translate("TRY AGAIN"); }, get text() { return translate("That room code was just taken. Give it another go."); }, icon: 'reset' },
+  [ERR.LOST]: { get title() { return translate("CONNECTION LOST"); }, get text() { return translate("The link to the room dropped. Check your connection and join again."); }, icon: 'signal' },
 };
 // Stage art rendered from the real game by tools/stage-shots.mjs: <id>-<day|dusk>[-sm].webp (resolved against this
 // module so the UI lab in tools/ finds them too). Missing art falls back to the layout thumbnail.
@@ -2437,7 +2438,7 @@ export class Menus {
     if (state === 'match') { if (n.isMock && cur === 'lobby') this.show(null, { instantLeave: true }); return; }
     if (state === 'lobby') { if (n.isMock && (cur === null || cur === 'results')) this.show('lobby'); return; }
     if ((state === 'error' || state === 'offline') && !this._leavingRoom) {
-      if (cur === 'lobby' || (this._stack[0] === 'lobby' && cur)) this._roomGone(n.error || translate("You left the room"));
+      if (cur === 'lobby' || (this._stack[0] === 'lobby' && cur)) this._roomGone(n.errorCode || n.error || translate("You left the room"));
     }
   }
 
@@ -2447,8 +2448,8 @@ export class Menus {
     safeCall(() => sc && sc.leaveLobby && sc.leaveLobby());
     if (this._modal) this._closeModal(true);
     this.show('online', { wipe: true, back: true });
-    const E = JOIN_ERR[msg];
-    this.toast(E ? `${E.title[0]}${E.title.slice(1).toLowerCase()} — ${E.text.split('.')[0]}.` : msg, { kind: 'error', icon: GLYPHS[(E && E.icon) || 'exit'], ms: 5200 });
+    const E = JOIN_ERR[codeFromText(msg) || msg];
+    this.toast(E ? `${E.title[0]}${E.title.slice(1).toLowerCase()} — ${E.text.split('.')[0]}.` : translate(errorMessageKey(msg, msg)), { kind: 'error', icon: GLYPHS[(E && E.icon) || 'exit'], ms: 5200 });
   }
 
   _teamColors() { return this._accent(); }
@@ -2678,7 +2679,7 @@ export class Menus {
       } else { enterEntry(firstEmpty()); hintEl.textContent = translate("Press Ctrl+V (⌘V) to paste"); }
     };
     const showError = (msg) => {
-      const E = JOIN_ERR[msg] || { title: translate("COULDN’T JOIN"), text: (msg && translate(msg)) || translate("Something went wrong. Try again."), icon: 'close' };
+      const E = JOIN_ERR[codeFromText(msg) || msg] || { title: translate("COULDN’T JOIN"), text: (msg && translate(errorMessageKey(msg, msg))) || translate("Something went wrong. Try again."), icon: 'close' };
       errIcon.innerHTML = GLYPHS[E.icon] || GLYPHS.close;
       errTitle.textContent = E.title; errText.textContent = E.text;
       jstat.classList.add('is-on'); restartAnim(jstat, 'is-in');
@@ -2715,7 +2716,7 @@ export class Menus {
       } catch (e) {
         if (tok !== st.token || !st.alive) return;
         st.busy = false;
-        showError(e && e.message);
+        showError(e?.code || e?.message);
       }
     };
     const cancelConnect = () => {
@@ -2749,8 +2750,8 @@ export class Menus {
         create.classList.remove('is-busy');
         el.classList.remove('is-connecting');
         create.classList.add('is-err');
-        const E = JOIN_ERR[e && e.message];
-        createStatus.textContent = E ? `${E.title} — ${E.text}` : (e && translate(e.message)) || translate("Couldn’t open a room");
+        const E = JOIN_ERR[e?.code || codeFromText(e?.message)];
+        createStatus.textContent = E ? `${E.title} — ${E.text}` : (e && translate(errorMessageKey(e.code, e.message))) || translate("Couldn’t open a room");
         restartAnim(create, 'is-shake');
         this._sfx('ui_error');
       }

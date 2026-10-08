@@ -1,6 +1,6 @@
 import { parse } from 'acorn';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-const files = ['src/config.js', 'src/main.js', 'src/game/character-style.js', ...['menus', 'hud', 'hud-boss', 'menu-art', 'ui-icons', 'news', 'diorama', 'boss-art'].map(x => `src/ui/${x}.js`)];
+const files = ['src/config.js', 'src/main.js', 'src/game/character-style.js', 'src/game/specials.js', ...['menus', 'hud', 'hud-boss', 'menu-art', 'ui-icons', 'news', 'diorama', 'boss-art'].map(x => `src/ui/${x}.js`)];
 const strings = new Map();
 for (const file of files) {
   const src = readFileSync(file, 'utf8');

@@ -13,7 +13,7 @@
 // room → client:
 //   "m|<fromId>|<payload>"                                      relayed game payload
 //   {"t":"welcome","id","host","members":[{id,name}]}           {"t":"join","m":{id,name}}
-//   {"t":"leave","id","host"}                                   {"t":"err","e":"…"} (then close)
+//   {"t":"leave","id","host"}                                   {"t":"err","c":"ERR_…","e":"…"} (then close)
 import { DurableObject } from 'cloudflare:workers';
 
 const PROTO = 2, MAX = 8;
@@ -64,14 +64,14 @@ export class Room extends DurableObject {
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
     this.ctx.acceptWebSocket(server);
-    const fail = (e) => { server.send(JSON.stringify({ t: 'err', e })); server.close(4000, e); return new Response(null, { status: 101, webSocket: client }); };
+    const fail = (c, e) => { server.send(JSON.stringify({ t: 'err', c, e })); server.close(4000, e); return new Response(null, { status: 101, webSocket: client }); };
     const ms = this.members().filter((m) => m.ws !== server);
     const create = url.searchParams.get('create') === '1';
-    if (+(url.searchParams.get('v') || 0) !== PROTO) return fail('Please refresh the page — the game was updated');
-    if (create && ms.length) return fail('Room code taken');
-    if (!create && !ms.length) return fail('Room not found');
-    if (ms.length >= MAX) return fail('Room is full');
-    if (this.locked && ms.length) return fail('Match in progress');
+    if (+(url.searchParams.get('v') || 0) !== PROTO) return fail('ERR_STALE', 'Please refresh the page — the game was updated');
+    if (create && ms.length) return fail('ERR_CODE_TAKEN', 'Room code taken');
+    if (!create && !ms.length) return fail('ERR_NOT_FOUND', 'Room not found');
+    if (ms.length >= MAX) return fail('ERR_FULL', 'Room is full');
+    if (this.locked && ms.length) return fail('ERR_IN_PROGRESS', 'Match in progress');
     if (!ms.length) this.locked = false;
     const name = (url.searchParams.get('name') || 'Player').replace(/[^\p{L}\p{N} ._\-!?']/gu, '').slice(0, 16) || 'Player';
     let id;

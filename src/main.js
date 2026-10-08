@@ -1,3 +1,4 @@
+import { errorMessageKey } from './net/errors.js';
 import {translate,formatMessage,initialPreference,changeLanguage} from './i18n/runtime.js';
 // INKWAVE — boot, main loop and game-flow orchestration (menus ⇄ attract mode ⇄ matches ⇄ results).
 import * as THREE from 'three';
@@ -989,7 +990,7 @@ class Game {
   }
   // the room went away mid-match (connection lost): back to the menus with the reason
   netMatchAborted(reason) {
-    this.quitToMenu().then(() => { if (reason) this.menus?.toast?.(translate(reason)); });
+    this.quitToMenu().then(() => { if (reason) this.menus?.toast?.(translate(errorMessageKey(reason, reason))); });
   }
 
   _intro() {

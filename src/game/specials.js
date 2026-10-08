@@ -1,3 +1,4 @@
+import { translate } from '../i18n/runtime.js';
 // Specials (everything except Tidal Slam and Ink Tempest, which live in actor.js / weapons.js).
 //
 // A running special is `actor.specialActive = { id, def, t, dur, … }`. Flags on it steer the actor's own update:
@@ -393,17 +394,17 @@ export class SpecialSystem {
     const s = a.specialActive;
     if (!s) return null;
     switch (s.kind) {
-      case 'barrage': return `${s.def.name}! Throw ${s.bomb.name}s with RMB / E — no ink needed`;
-      case 'strike': return s.aiming ? 'Move the mouse to pick a spot · click to launch' : null;
-      case 'zooka': return 'Fire twisters with LMB';
-      case 'wail': return 'Aim the speaker · click to set it down and blast';
-      case 'kraken': return 'Kraken! LMB to jump-attack';
-      case 'blower': return `Hold LMB to blow a bubble (${s.def.max - (s.count || 0)} left) · shoot bubbles to blast them`;
-      case 'jetpack': return 'Ink Jet! Fire with LMB';
-      case 'stamp': return 'LMB to stamp · jump + LMB to slam · RMB to throw';
-      case 'booyah': return s.charge >= 1 ? 'Charged! LMB to throw' : 'Charging… teammates press C to cheer!';
-      case 'zipcaster': return s.hang > 0 ? 'Clinging — SPACE to jump off' : 'RMB / E to zip to a wall';
-      case 'crab': return s.roll ? 'Rolling (release SHIFT to stop)' : 'LMB gatling · RMB cannon · hold SHIFT to roll';
+      case 'barrage': return translate('special.barragePrompt', { special: s.def.name, sub: s.bomb.name });
+      case 'strike': return s.aiming ? translate('Move the mouse to pick a spot · click to launch') : null;
+      case 'zooka': return translate('Fire twisters with LMB');
+      case 'wail': return translate('Aim the speaker · click to set it down and blast');
+      case 'kraken': return translate('Kraken! LMB to jump-attack');
+      case 'blower': return translate('special.bubblePrompt', { count: s.def.max - (s.count || 0) });
+      case 'jetpack': return translate('Ink Jet! Fire with LMB');
+      case 'stamp': return translate('LMB to stamp · jump + LMB to slam · RMB to throw');
+      case 'booyah': return s.charge >= 1 ? translate('Charged! LMB to throw') : translate('Charging… teammates press C to cheer!');
+      case 'zipcaster': return s.hang > 0 ? translate('Clinging — SPACE to jump off') : translate('RMB / E to zip to a wall');
+      case 'crab': return s.roll ? translate('Rolling (release SHIFT to stop)') : translate('LMB gatling · RMB cannon · hold SHIFT to roll');
     }
     return null;
   }

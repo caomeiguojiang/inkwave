@@ -22,19 +22,19 @@ test('room protocol, targeting, host migration, lock and cleanup',async t=>{
   b.send('ping');assert.equal(await b.next(),'pong');
   b.send(JSON.stringify({t:'lock',v:true})); b.send('ping');await b.next();assert.equal(r.rooms.get('ABCDE').locked,false);
   a.send(JSON.stringify({t:'lock',v:true}));a.send('ping');await a.next();
-  const c=await connect(r);assert.equal((await c.next()).e,'Match in progress');
+  const c=await connect(r);assert.deepEqual(await c.next(),{t:'err',c:'ERR_IN_PROGRESS',e:'Match in progress'});
   a.close();const left=await b.next();assert.equal(left.host,bw.id);assert.equal(left.id,aw.id);
   b.send(JSON.stringify({t:'lock',v:false}));b.send('ping');await b.next();
   const d=await connect(r);assert.equal((await d.next()).host,bw.id);
   b.close();d.close();await new Promise(ok=>setTimeout(ok,30));assert.equal(r.rooms.size,0);
-  const e=await connect(r);assert.equal((await e.next()).e,'Room not found');
+  const e=await connect(r);assert.deepEqual(await e.next(),{t:'err',c:'ERR_NOT_FOUND',e:'Room not found'});
 });
 test('capacity, protocol and origin boundaries',async t=>{
   const r=await start();t.after(()=>r.close());
   const first=await connect(r,'ABCDE',true);await first.next();
-  const duplicate=await connect(r,'ABCDE',true);assert.equal((await duplicate.next()).e,'Room code taken');
+  const duplicate=await connect(r,'ABCDE',true);assert.deepEqual(await duplicate.next(),{t:'err',c:'ERR_CODE_TAKEN',e:'Room code taken'});
   for(let i=0;i<7;i++){const p=await connect(r);assert.equal((await p.next()).t,'welcome');}
-  const ninth=await connect(r);assert.equal((await ninth.next()).e,'Room is full');
+  const ninth=await connect(r);assert.deepEqual(await ninth.next(),{t:'err',c:'ERR_FULL',e:'Room is full'});
   await assert.rejects(new Promise((ok,no)=>{const ws=new WebSocket(r.url+'/room/ABCDE?v=2',{origin:'https://evil.invalid'});ws.on('open',()=>{ws.close();ok();});ws.on('error',no);}),/403/);
   const bad=await connect(r,'ZZZZZ',true,'&x=1');assert.equal((await bad.next()).t,'welcome');
 });
@@ -53,6 +53,12 @@ test('previous clients cannot create or join current rooms',async t=>{
    const ws=new WebSocket(r.url+'/room/ABCDE?'+query,{origin});
    ws.on('message',data=>{resolve(JSON.parse(data));ws.close();});ws.on('error',reject);
   });
-  assert.equal(error.t,'err');assert.match(error.e,/refresh/);assert.equal(r.rooms.size,0);
+  assert.equal(error.t,'err');assert.equal(error.c,'ERR_STALE');assert.match(error.e,/refresh/);assert.equal(r.rooms.size,0);
  }
+});
+
+test('room capacity returns a stable busy code', async t => {
+ const r=await start({maxRooms:0});t.after(()=>r.close());
+ const ws=await connect(r,'ABCDE',true);
+ assert.deepEqual(await ws.next(),{t:'err',c:'ERR_BUSY',e:'Server is busy. Try again later.'});
 });

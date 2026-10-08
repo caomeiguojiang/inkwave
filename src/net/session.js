@@ -9,6 +9,7 @@ import { MAPS, WEAPONS, WEAPON_ORDER, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER, 
 import { randomStyle } from '../game/character-style.js';
 import { Transport } from './transport.js';
 import { NetMatch } from './netmatch.js';
+import { ERR, netError, codeFromText, errorMessageKey } from './errors.js';
 import { Preparation } from './preparation.js';
 
 // no 0/O or 1/I (misread), and no W/A/S/D: those move the menu cursor, so any other key typed on the online hub can
@@ -25,6 +26,7 @@ export class NetSession {
     this.myId = null;
     this.hostId = null;
     this.error = null;
+    this.errorCode = null;
     this.lobby = this._blankLobby();
     this._subs = new Map();
     this.tr = null;
@@ -73,7 +75,7 @@ export class NetSession {
     let lastErr = null;
     for (let tries = 0; tries < 4; tries++) {
       const code = Array.from({ length: 5 }, () => CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0]).join('');
-      try { await this._connect(code, name, true); return code; } catch (e) { lastErr = e; if (e.message !== 'Room code taken') break; }
+      try { await this._connect(code, name, true); return code; } catch (e) { lastErr = e; if (e.code !== ERR.CODE_TAKEN) break; }
     }
     this._fail(lastErr);
     throw lastErr;
@@ -81,13 +83,14 @@ export class NetSession {
 
   async join(code, name) {
     code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (code.length < 4) { const e = new Error('Room not found'); this._fail(e); throw e; }
+    if (code.length < 4) { const e = netError(ERR.NOT_FOUND, 'Room not found'); this._fail(e); throw e; }
     try { await this._connect(code, name, false); } catch (e) { this._fail(e); throw e; }
   }
 
   async _connect(code, name, create) {
     this.leave(true);
     this.error = null;
+    this.errorCode = null;
     this._setState('connecting');
     const tr = (this.tr = new Transport());
     tr.onControl = (o) => this._control(o);
@@ -129,22 +132,24 @@ export class NetSession {
     clearInterval(this._prepareTimer);
     this.match?.dispose(); this.match = null;
     this._startCfg = null;
+    this.errorCode = e?.code || codeFromText(e?.message) || ERR.CONNECT;
     this.error = e?.message || "Could not connect";
     this.tr?.close(); this.tr = null;
     this._setState('error');
-    this._emit('error', { message: this.error });
+    this._emit('error', { code: this.errorCode, message: this.error });
   }
 
   _closed(reason) {
     clearInterval(this._prepareTimer);
     const inMatch = this.state === 'match' || this.state === 'starting';
+    this.errorCode = reason === 'bye' ? null : codeFromText(reason) || ERR.LOST;
     this.error = reason === 'bye' ? null : 'Lost connection to the room';
     this.match?.dispose(); this.match = null;
     this.tr = null;
     this.code = null;
     this._setState(this.error ? 'error' : 'offline');
-    if (this.error) this._emit('error', { message: this.error });
-    if (inMatch) G.game?.netMatchAborted?.(this.error);
+    if (this.error) this._emit('error', { code: this.errorCode, message: this.error });
+    if (inMatch) G.game?.netMatchAborted?.(this.errorCode || this.error);
   }
 
   // ------------------------------------------------------------------ relay membership
@@ -165,8 +170,8 @@ export class NetSession {
       for (const p of this.lobby.players) p.host = p.id === this.hostId;
       if (!this._excluded?.has(o.id)) this.match?.onLeave(o.id, hostChanged);
       if (this.state === 'starting' && hostChanged) {
-        this._fail(new Error('Host left while loading'));
-        G.game?.netMatchAborted?.(this.error);
+        this._fail(netError(ERR.HOST_LOADING, 'Host left while loading'));
+        G.game?.netMatchAborted?.(this.errorCode || this.error);
         return;
       }
       if (this.state === 'starting' && this.isHost) this._checkPreparation();
@@ -321,7 +326,7 @@ export class NetSession {
       if (this.state !== 'starting' || this._startCfg !== cfg) return;
       if (this.isHost) this._checkPreparation();
       else if (performance.now() - this._preparation.started > 130000)
-        this._abortPreparation("Loading timed out. Please try again.");
+        this._abortPreparation(ERR.LOAD_TIMEOUT);
     }, 1000);
     this._emit('match', { phase: 'start' });
     // the lobby plays its 3·2·1 + super-jump launch first (resolves at once when the lobby isn't on screen)
@@ -333,7 +338,7 @@ export class NetSession {
     } catch (e) {
       if (this.state !== 'starting' || this._startCfg !== cfg) return;
       console.error('[net] match start failed', e);
-      this._fail(new Error('Could not start the match'));
+      this._fail(netError(ERR.MATCH_START, 'Could not start the match'));
       return;
     }
     if (this.state !== 'starting' || this._startCfg !== cfg) return;
@@ -362,19 +367,19 @@ export class NetSession {
       this._acceptGo(message);
     } else if (decision.action === 'abort') {
       this.tr?.broadcast({ k: 'load-abort', id: cfg.id });
-      this._abortPreparation("Not enough players finished loading. Please try again.");
+      this._abortPreparation(ERR.LOAD_QUORUM);
     }
   }
 
-  _abortPreparation(reason) {
-    this._fail(new Error(reason));
-    G.game?.netMatchAborted?.(reason);
+  _abortPreparation(code) {
+    this._fail(netError(code, errorMessageKey(code)));
+    G.game?.netMatchAborted?.(code);
   }
 
   _acceptGo(message) {
     const excluded = Array.isArray(message.excluded) ? message.excluded : [];
     if (excluded.includes(this.myId)) {
-      this._abortPreparation("Loading took too long. This match started without you.");
+      this._abortPreparation(ERR.LOAD_EXCLUDED);
       return;
     }
     this._excluded = new Set(excluded);
@@ -425,7 +430,7 @@ export class NetSession {
       case 'start': if (from === this.hostId && this.state === 'lobby') this._begin(d); break;
       case 'ready': if (this.isHost && this._startCfg && d.id === this._startCfg.id) this._markReady(from); break;
       case 'go': if (from === this.hostId && this.state === 'starting' && d.id === this._startCfg?.id) this._acceptGo(d); break;
-      case 'load-abort': if (from === this.hostId && this.state === 'starting' && d.id === this._startCfg?.id) this._abortPreparation("Not enough players finished loading. Please try again."); break;
+      case 'load-abort': if (from === this.hostId && this.state === 'starting' && d.id === this._startCfg?.id) this._abortPreparation(ERR.LOAD_QUORUM); break;
       default: if (!this._excluded?.has(from)) this.match?.onMessage(from, d);
     }
   }

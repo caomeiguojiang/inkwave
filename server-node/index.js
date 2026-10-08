@@ -61,16 +61,16 @@ export function createRelay({ origins = ['http://localhost:8490', 'http://127.0.
     wss.handleUpgrade(req, socket, head, ws => {
       peers.add(ws); ws.ip = ip; ips.set(ip, (ips.get(ip) || 0) + 1);
       ws.on('close', () => remove(ws)); ws.on('error', () => { remove(ws); ws.terminate(); });
-      const fail = e => { send(ws, {t:'err',e}); ws.close(4000,e); remove(ws); };
+      const fail = (c, e) => { send(ws, {t:'err',c,e}); ws.close(4000,e); remove(ws); };
       const code = m[1].toUpperCase(), create = url.searchParams.get('create') === '1';
       let room = rooms.get(code);
-      if (url.searchParams.get('v') !== '2') return fail('Please refresh the page — the game was updated');
-      if (create && room) return fail('Room code taken');
-      if (!create && !room) return fail('Room not found');
-      if (room?.members.size >= 8) return fail('Room is full');
-      if (room?.locked) return fail('Match in progress');
+      if (url.searchParams.get('v') !== '2') return fail('ERR_STALE', 'Please refresh the page — the game was updated');
+      if (create && room) return fail('ERR_CODE_TAKEN', 'Room code taken');
+      if (!create && !room) return fail('ERR_NOT_FOUND', 'Room not found');
+      if (room?.members.size >= 8) return fail('ERR_FULL', 'Room is full');
+      if (room?.locked) return fail('ERR_IN_PROGRESS', 'Match in progress');
       if (!room) {
-        if (rooms.size >= maxRooms) return fail('Server is busy. Try again later.');
+        if (rooms.size >= maxRooms) return fail('ERR_BUSY', 'Server is busy. Try again later.');
         room = {code,locked:false,members:new Map()}; rooms.set(code,room);
       }
       do { ws.id = randomBytes(3).toString('hex').toUpperCase(); } while (room.members.has(ws.id));
