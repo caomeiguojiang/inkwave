@@ -899,6 +899,7 @@ export class Menus {
 
   // ================================================================ SCREEN: main
   _scr_main() {
+    this._preloadStages();
     const prof = this._profile();
     const lo = this._loadout();
     const W = this._weapons()[lo.weapon];
@@ -1054,7 +1055,24 @@ export class Menus {
     return t === 'dusk' || t === 'day' ? t : (s.timeOfDay === 'dusk' ? 'dusk' : 'day');
   }
 
+  _preloadStages() {
+    if (this._stageImgs) return;
+    this._stageImgs = [];
+    for (const m of this._maps()) {
+      for (const t of ['day', 'dusk']) {
+        for (const sm of [true, false]) {
+          const im = new Image();
+          im.decoding = 'async';
+          im.src = stageArt(m.id, t, sm);
+          if (im.decode) im.decode().catch(() => {});
+          this._stageImgs.push(im);
+        }
+      }
+    }
+  }
+
   _scr_setup() {
+    this._preloadStages();
     const s = this._settings();
     const maps = this._maps().filter((m) => !m.onlineOnly);   // (online-only stages live in the online lobby's picker)
     const diffs = this._diffs();
@@ -1187,8 +1205,8 @@ export class Menus {
 
     // ---- stage list: tilted tickets with the render, name tape, time badge, select splat
     const tickets = maps.map((m, i) => {
-      const imgDay = h('img', { class: 'iw-ticket__img is-day', alt: '', draggable: 'false', loading: 'lazy', decoding: 'async' });
-      const imgDusk = h('img', { class: 'iw-ticket__img is-dusk', alt: '', draggable: 'false', loading: 'lazy', decoding: 'async' });
+      const imgDay = h('img', { class: 'iw-ticket__img is-day', alt: '', draggable: 'false' });
+      const imgDusk = h('img', { class: 'iw-ticket__img is-dusk', alt: '', draggable: 'false' });
       for (const [im, t] of [[imgDay, 'day'], [imgDusk, 'dusk']]) {
         im.addEventListener('error', () => { im.remove(); c.classList.add('is-noart'); }, { once: true });
         im.src = stageArt(m.id, t, true);

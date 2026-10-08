@@ -9,8 +9,7 @@ import { MAPS, WEAPONS, WEAPON_ORDER, SUBS, SUB_ORDER, SPECIALS, SPECIAL_ORDER, 
 import { randomStyle } from '../game/character-style.js';
 import { Transport } from './transport.js';
 import { NetMatch } from './netmatch.js';
-import { ERR, netError, codeFromText, errorMessageKey } from './errors.js';
-import { Preparation } from './preparation.js';
+import { ERR, netError, codeFromText } from './errors.js';
 
 // no 0/O or 1/I (misread), and no W/A/S/D: those move the menu cursor, so any other key typed on the online hub can
 // only mean a room code (28⁵ ≈ 17 M codes)
@@ -25,8 +24,8 @@ export class NetSession {
     this.code = null;
     this.myId = null;
     this.hostId = null;
-    this.error = null;
-    this.errorCode = null;
+    this.error = null;         // last failure, for logs / fallback text
+    this.errorCode = null;     // stable code for the same failure (src/net/errors.js) — what the UI keys off
     this.lobby = this._blankLobby();
     this._subs = new Map();
     this.tr = null;
@@ -75,6 +74,7 @@ export class NetSession {
     let lastErr = null;
     for (let tries = 0; tries < 4; tries++) {
       const code = Array.from({ length: 5 }, () => CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0]).join('');
+      // the retry loop keys off the error *code*, so the message wording is free to be translated
       try { await this._connect(code, name, true); return code; } catch (e) { lastErr = e; if (e.code !== ERR.CODE_TAKEN) break; }
     }
     this._fail(lastErr);
@@ -90,7 +90,6 @@ export class NetSession {
   async _connect(code, name, create) {
     this.leave(true);
     this.error = null;
-    this.errorCode = null;
     this._setState('connecting');
     const tr = (this.tr = new Transport());
     tr.onControl = (o) => this._control(o);
@@ -116,7 +115,6 @@ export class NetSession {
   }
 
   leave(silent = false) {
-    clearInterval(this._prepareTimer);
     this.match?.dispose(); this.match = null;
     this.tr?.close(); this.tr = null;
     const was = this.state;
@@ -129,21 +127,18 @@ export class NetSession {
   }
 
   _fail(e) {
-    clearInterval(this._prepareTimer);
-    this.match?.dispose(); this.match = null;
-    this._startCfg = null;
-    this.errorCode = e?.code || codeFromText(e?.message) || ERR.CONNECT;
-    this.error = e?.message || "Could not connect";
+    this.errorCode = e?.code || ERR.CONNECT;
+    this.error = e?.message || 'Could not connect';
     this.tr?.close(); this.tr = null;
     this._setState('error');
     this._emit('error', { code: this.errorCode, message: this.error });
   }
 
   _closed(reason) {
-    clearInterval(this._prepareTimer);
     const inMatch = this.state === 'match' || this.state === 'starting';
-    this.errorCode = reason === 'bye' ? null : codeFromText(reason) || ERR.LOST;
-    this.error = reason === 'bye' ? null : 'Lost connection to the room';
+    const gone = reason !== 'bye';
+    this.errorCode = gone ? codeFromText(reason) || ERR.LOST : null;
+    this.error = gone ? (reason || 'Lost connection to the room') : null;
     this.match?.dispose(); this.match = null;
     this.tr = null;
     this.code = null;
@@ -168,13 +163,7 @@ export class NetSession {
       this.hostId = o.host;
       this.lobby.players = this.lobby.players.filter((p) => p.id !== o.id);
       for (const p of this.lobby.players) p.host = p.id === this.hostId;
-      if (!this._excluded?.has(o.id)) this.match?.onLeave(o.id, hostChanged);
-      if (this.state === 'starting' && hostChanged) {
-        this._fail(netError(ERR.HOST_LOADING, 'Host left while loading'));
-        G.game?.netMatchAborted?.(this.errorCode || this.error);
-        return;
-      }
-      if (this.state === 'starting' && this.isHost) this._checkPreparation();
+      this.match?.onLeave(o.id, hostChanged);
       if (hostChanged) this._emit('host', { hostId: this.hostId });
       if (this.isHost) { this._fixTeams(); this._broadcastLobby(); }
       this._emit('leave', { player: gone, reason: 'left' });
@@ -314,20 +303,10 @@ export class NetSession {
   }
 
   async _begin(cfg) {
-    clearInterval(this._prepareTimer);
-    this._localPrepared = false;
-    this._pendingGo = false;
-    this._excluded = new Set();
     this._startCfg = cfg;
+    this._ready = new Set();
     for (const p of this.lobby.players) p.ready = false;
     this._setState('starting');
-    this._preparation = new Preparation(cfg.roster.filter(r => !r.bot).map(r => r.owner), cfg.host, performance.now());
-    this._prepareTimer = setInterval(() => {
-      if (this.state !== 'starting' || this._startCfg !== cfg) return;
-      if (this.isHost) this._checkPreparation();
-      else if (performance.now() - this._preparation.started > 130000)
-        this._abortPreparation(ERR.LOAD_TIMEOUT);
-    }, 1000);
     this._emit('match', { phase: 'start' });
     // the lobby plays its 3·2·1 + super-jump launch first (resolves at once when the lobby isn't on screen)
     try { await G.game?.menus?.launchLobby?.(); } catch (e) { console.warn('[net] launch', e); }
@@ -336,61 +315,32 @@ export class NetSession {
     try {
       await G.game.startNetMatch(cfg, this.match);
     } catch (e) {
-      if (this.state !== 'starting' || this._startCfg !== cfg) return;
       console.error('[net] match start failed', e);
       this._fail(netError(ERR.MATCH_START, 'Could not start the match'));
       return;
     }
-    if (this.state !== 'starting' || this._startCfg !== cfg) return;
-    this._localPrepared = true;
     if (this.isHost) this._markReady(this.myId);
     else this.tr?.sendTo(this.hostId, { k: 'ready', id: cfg.id });
-    if (this._pendingGo) this._launch();
   }
 
   _markReady(id) {
     if (!this.isHost || this.state !== 'starting' || !this._startCfg) return;
-    this._preparation.mark(id);
-    this._checkPreparation();
+    this._ready.add(id);
+    const humans = new Set(this._startCfg.roster.filter((r) => !r.bot).map((r) => r.owner));
+    for (const h of humans) if (!this._members.has(h) && h !== this.myId) this._ready.add(h);   // left while loading
+    const all = [...humans].every((h) => this._ready.has(h));
+    if (all) this._go();
+    else if (!this._goT) this._goT = setTimeout(() => this._go(), 12000);   // don't hold everyone for one slow load
   }
 
-  _checkPreparation() {
-    if (!this.isHost || this.state !== 'starting') return;
-    const cfg = this._startCfg;
-    const connected = new Set([...this._members.keys(), this.myId]);
-    const decision = this._preparation.decide(performance.now(), connected, ready =>
-      !noBotsStartBlock({ map: cfg.map, players: cfg.roster.filter(r => !r.bot && ready.includes(r.owner)) }));
-    this._emit('preparation', { ready: decision.ready.length, total: this._preparation.owners.size });
-    if (decision.action === 'start') {
-      const message = { k: 'go', id: cfg.id, excluded: decision.excluded };
-      this.tr?.broadcast(message);
-      this._acceptGo(message);
-    } else if (decision.action === 'abort') {
-      this.tr?.broadcast({ k: 'load-abort', id: cfg.id });
-      this._abortPreparation(ERR.LOAD_QUORUM);
-    }
-  }
-
-  _abortPreparation(code) {
-    this._fail(netError(code, errorMessageKey(code)));
-    G.game?.netMatchAborted?.(code);
-  }
-
-  _acceptGo(message) {
-    const excluded = Array.isArray(message.excluded) ? message.excluded : [];
-    if (excluded.includes(this.myId)) {
-      this._abortPreparation(ERR.LOAD_EXCLUDED);
-      return;
-    }
-    this._excluded = new Set(excluded);
-    for (const id of excluded) this.match?.onLeave(id, false);
+  _go() {
+    clearTimeout(this._goT); this._goT = null;
+    if (this.state !== 'starting') return;
+    this.tr?.broadcast({ k: 'go', id: this._startCfg.id });
     this._launch();
   }
 
   _launch() {
-    if (!this._localPrepared) { this._pendingGo = true; return; }
-    if (this.state !== 'starting') return;
-    clearInterval(this._prepareTimer);
     this._setState('match');
     this.match?.go();
     G.game.netMatchGo?.();
@@ -398,7 +348,6 @@ export class NetSession {
 
   // the match's results have been shown: everyone back to the lobby (the room stays)
   endMatch() {
-    clearInterval(this._prepareTimer);
     this.match?.dispose(); this.match = null;
     this._startCfg = null;
     if (!this.tr) return;
@@ -429,9 +378,8 @@ export class NetSession {
       case 'emote': this._emit('emote', { id: from, name: d.n }); break;
       case 'start': if (from === this.hostId && this.state === 'lobby') this._begin(d); break;
       case 'ready': if (this.isHost && this._startCfg && d.id === this._startCfg.id) this._markReady(from); break;
-      case 'go': if (from === this.hostId && this.state === 'starting' && d.id === this._startCfg?.id) this._acceptGo(d); break;
-      case 'load-abort': if (from === this.hostId && this.state === 'starting' && d.id === this._startCfg?.id) this._abortPreparation(ERR.LOAD_QUORUM); break;
-      default: if (!this._excluded?.has(from)) this.match?.onMessage(from, d);
+      case 'go': if (from === this.hostId && this.state === 'starting') this._launch(); break;
+      default: this.match?.onMessage(from, d);
     }
   }
 

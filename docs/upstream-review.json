@@ -25,6 +25,11 @@
       "area": "music manifest path",
       "decision": "already present before this review",
       "upstream": "PR #13"
+    },
+    {
+      "area": "original experience restoration",
+      "decision": "Restore upstream boot, renderer, material loading, settings application, stage prefetch and NetSession; retain native localization/fonts and standalone deployment adapter. Protocol 3 rejects retired protocol-2 clients.",
+      "record": "docs/original-behavior-20261008.md"
     }
   ]
 }

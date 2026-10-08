@@ -10,7 +10,7 @@ locally hosted Swei Gothic regional fonts. Artwork, author credits and gameplay 
 `tools/build-assertok.mjs` validates translations and packages the normal source;
 it does not rewrite JavaScript or inject a selector. The transport uses a same-origin
 WebSocket endpoint. `server-node/` implements the upstream
-fork protocol-2 relay contract and serves only `dist/`. It is a relay, not an authoritative
+relay contract (compatibility version 3) and serves only `dist/`. It is a relay, not an authoritative
 game server; the room host still simulates the match. Rooms disappear on restart.
 
 ## Build and verify

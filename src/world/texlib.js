@@ -1329,7 +1329,7 @@ float texlibCoverage(float a, vec2 uv, float texSize) {
 // Library construction
 // ---------------------------------------------------------------------------------------------------------------
 
-export async function createTextureLibrary(renderer, { size = 512, stage = null } = {}) {
+export async function createTextureLibrary(renderer, { size = 512 } = {}) {
   const t0 = performance.now();
   const L = MATERIALS.length;
   const aniso = Math.min(16, renderer.capabilities.getMaxAnisotropy());
@@ -1364,81 +1364,45 @@ export async function createTextureLibrary(renderer, { size = 512, stage = null 
     uRes: { value: new THREE.Vector2(size, size) }, uScale: { value: 1 }, uMat: { value: 0 }, uOne: { value: 1 },
     uHRange: { value: new THREE.Vector2() }, uAO: { value: 0.5 },
   };
-  // Keep stable layer indices for the level shader, but only compile/generate needed
-  // stage-owned surfaces. Null stage retains the full-library API used by art tools.
-  const stageOf = new Map(STAGE_SURFACES.map(s => [s.name, s.stage]));
-  const generated = new Set();
-  let compileMs = 0;
-  async function generate(entries) {
-    if (!entries.length) return;
-    const groups = [...new Set(entries.map(([m]) => m.group || 0))].sort((a, b) => a - b).map(g => entries.filter(([m]) => (m.group || 0) === g));
-    const progs = groups.map((list) => {
-      const fns = list.map(([m, i]) => `void prep${i}(${PREP_SIG}) {\n  ${m.prep}\n}\nvoid surf${i}(${SURF_SIG}) {${m.surf}\n}`).join('\n');
-      const sw = (fn, args) => list.map(([, i], k) => `${k ? 'else ' : ''}if (uMat == ${i}) ${fn}${i}(${args});`).join('\n  ');
-      return raw(GEN_COMMON + fns + GEN_MAIN.replace('PREP_SWITCH', sw('prep', 'uv, P, f, w')).replace('SURF_SWITCH', sw('surf', 'uv, P, n, c, s')), uniforms);
-    });
-    const scene = new THREE.Scene();
-    const quads = progs.map((p) => { const q = new THREE.Mesh(geo, p); q.frustumCulled = false; scene.add(q); return q; });
-    const groupOf = new Map(groups.flatMap((list, k) => list.map(([, i]) => [i, k])));
-    const compileStart = performance.now();
-    const compileRT = renderer.getRenderTarget(), compileFace = renderer.getActiveCubeFace(), compileMip = renderer.getActiveMipmapLevel();
-    let compilation;
-    try { renderer.setRenderTarget(out, entries[0][1]); compilation = renderer.compileAsync(scene, cam); }
-    finally { renderer.setRenderTarget(compileRT, compileFace, compileMip); }
-    try { await compilation; }
-    catch (error) { progs.forEach(p => p.dispose()); throw error; }
-    compileMs += performance.now() - compileStart;
+  const groups = [...new Set(MATERIALS.map((m) => m.group || 0))].sort((a, b) => a - b).map((g) => MATERIALS.map((m, i) => [m, i]).filter(([m]) => (m.group || 0) === g)).filter((l) => l.length);
+  const progs = groups.map((list) => {
+    const fns = list.map(([m, i]) => `void prep${i}(${PREP_SIG}) {\n  ${m.prep}\n}\nvoid surf${i}(${SURF_SIG}) {${m.surf}\n}`).join('\n');
+    const sw = (fn, args) => list.map(([, i], k) => `${k ? 'else ' : ''}if (uMat == ${i}) ${fn}${i}(${args});`).join('\n  ');
+    return raw(GEN_COMMON + fns + GEN_MAIN.replace('PREP_SWITCH', sw('prep', 'uv, P, f, w')).replace('SURF_SWITCH', sw('surf', 'uv, P, n, c, s')), uniforms);
+  });
+  const scene = new THREE.Scene();
+  const quads = progs.map((p) => { const q = new THREE.Mesh(geo, p); q.frustumCulled = false; scene.add(q); return q; });
+  const groupOf = new Map(groups.flatMap((list, k) => list.map(([, i]) => [i, k])));
+  await renderer.compileAsync(scene, cam);   // async (and parallel) where KHR_parallel_shader_compile exists
+  const tCompiled = performance.now();
 
-    const prevRT = renderer.getRenderTarget();
-    const prevFace = renderer.getActiveCubeFace(), prevMip = renderer.getActiveMipmapLevel();
-    const prevAutoClear = renderer.autoClear;
-    const prevXR = renderer.xr.enabled;
-    renderer.autoClear = false;
-    renderer.xr.enabled = false;
-    renderer.initRenderTarget(out);
-    for (const t of out.textures) t.generateMipmaps = false;   // build the mip chain once, after the last layer
+  const prevRT = renderer.getRenderTarget();
+  const prevAutoClear = renderer.autoClear;
+  const prevXR = renderer.xr.enabled;
+  renderer.autoClear = false;
+  renderer.xr.enabled = false;
+  renderer.initRenderTarget(out);
+  for (const t of out.textures) t.generateMipmaps = false;   // build the mip chain once, after the last layer
 
-    try {
-      for (let index = 0; index < entries.length; index++) {
-        const [m, i] = entries[index];
-        quads.forEach((q, k) => { q.visible = k === groupOf.get(i); });
-        uniforms.uMat.value = i;
-        uniforms.uScale.value = m.scale;
-        uniforms.uHRange.value.set(m.hr[0], m.hr[1]);
-        uniforms.uAO.value = m.ao;
-        if (index === entries.length - 1) for (const t of out.textures) t.generateMipmaps = true;
-        renderer.setRenderTarget(out, i);
-        renderer.render(scene, cam);
-        // Leave a real task boundary between GPU submissions; menus/input can paint.
-        renderer.setRenderTarget(prevRT, prevFace, prevMip);
-        renderer.autoClear = prevAutoClear; renderer.xr.enabled = prevXR;
-        await (globalThis.scheduler?.yield?.() || new Promise(resolve => setTimeout(resolve, 0)));
-        renderer.autoClear = false; renderer.xr.enabled = false;
-      }
-      // Async completion check: do not stall the main thread waiting for the GPU.
-      renderer.setRenderTarget(out, entries.at(-1)[1]);
-      await renderer.readRenderTargetPixelsAsync(out, 0, 0, 1, 1, new Uint8Array(4), undefined, 2);
-      for (const [, i] of entries) generated.add(i);
-    } finally {
-      renderer.setRenderTarget(prevRT, prevFace, prevMip);
-      renderer.autoClear = prevAutoClear;
-      renderer.xr.enabled = prevXR;
-      progs.forEach((p) => p.dispose());
-    }
+  for (let i = 0; i < L; i++) {
+    const m = MATERIALS[i];
+    quads.forEach((q, k) => { q.visible = k === groupOf.get(i); });
+    uniforms.uMat.value = i;
+    uniforms.uScale.value = m.scale;
+    uniforms.uHRange.value.set(m.hr[0], m.hr[1]);
+    uniforms.uAO.value = m.ao;
+    if (i === L - 1) for (const t of out.textures) t.generateMipmaps = true;
+    renderer.setRenderTarget(out, i);
+    renderer.render(scene, cam);
   }
-  const entries = MATERIALS.map((m, i) => [m, i]);
-  try { await generate(entries.filter(([m]) => stage === null || !stageOf.has(m.name) || stageOf.get(m.name) === stage)); }
-  catch (error) { geo.dispose(); out.dispose(); throw error; }
-  let queue = Promise.resolve();
-  let disposed = false;
-  const ensureStage = id => {
-    const job = queue.then(async () => {
-      if (disposed) throw new Error('Texture library has been disposed');
-      await generate(entries.filter(([m, i]) => !generated.has(i) && stageOf.get(m.name) === id));
-    });
-    queue = job.catch(() => {});
-    return job;
-  };
+  // wait for the GPU so the reported time is honest (one-pixel readback)
+  renderer.readRenderTargetPixels(out, 0, 0, 1, 1, new Uint8Array(4), undefined, 2);
+
+  renderer.setRenderTarget(prevRT);
+  renderer.autoClear = prevAutoClear;
+  renderer.xr.enabled = prevXR;
+  progs.forEach((p) => p.dispose());
+  geo.dispose();
 
   const layers = {}, meta = {};
   MATERIALS.forEach((m, i) => {
@@ -1454,8 +1418,7 @@ export async function createTextureLibrary(renderer, { size = 512, stage = null 
     meta,
     names: MATERIALS.map((m) => m.name),
     size,
-    stats: { ms: +(t1 - t0).toFixed(1), compileMs: +compileMs.toFixed(1), size, get generatedLayers() { return generated.size; }, totalLayers: L },
-    ensureStage,
-    dispose() { disposed = true; geo.dispose(); out.dispose(); },
+    stats: { ms: +(t1 - t0).toFixed(1), compileMs: +(tCompiled - t0).toFixed(1), size },
+    dispose() { out.dispose(); },
   };
 }

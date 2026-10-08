@@ -2797,8 +2797,6 @@ circle.iw-ico-cut { fill: var(--cut, #fff); }
 .iw-news.is-reduced .iw-news__confetti { display: none; }
 .iw-news.is-reduced .iw-news__card.is-out { animation: iw-fade-out .2s forwards !important; }
 
-/* Native menu backdrop: no WebGL work until a match is requested. */
-#app.is-menu-backdrop { background: linear-gradient(#12203526,#10132666), url("../assets/stages/tidewater-day.webp") center / cover no-repeat; }
 /* ---- mode select with Zone Control: three cards in the row (narrower cards, same sticker language) */
 .iw-modesel__row.is-three { gap: calc(var(--u) * 2.6); }
 .iw-modesel__row.is-three .iw-mode { width: calc(var(--u) * 30.5); }

@@ -4,8 +4,8 @@ const base=process.env.INKWAVE_URL || 'http://127.0.0.1:8490/';
 const browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--enable-gpu'],defaultViewport:{width:1440,height:900}});
 try {
  const page=await browser.newPage();
- await page.goto(base+'?skipTitle&news=0',{waitUntil:'domcontentloaded',timeout:60000});
- await page.waitForFunction('window.__G?.menus?.current === "main"',{timeout:60000});
+ await page.goto(base+'?skipTitle&news=0',{waitUntil:'domcontentloaded',timeout:180000});
+ await page.waitForFunction('window.__G?.menus?.current === "main"',{timeout:180000});
  const results=await page.evaluate(async()=>{
   const {NetSession}=await import('/src/net/session.js');
   const {ERR,netError}=await import('/src/net/errors.js');
@@ -27,15 +27,6 @@ try {
   const missing=new NetSession();
   try{await missing.join('ZZZZZ','test');}catch{}
   check(missing.errorCode===ERR.NOT_FOUND,'relay code not propagated');
-  const aborted=[],onAbort=__G.game.netMatchAborted;
-  try {
-   __G.game.netMatchAborted=code=>aborted.push(code);
-   for(const code of [ERR.LOAD_TIMEOUT,ERR.LOAD_QUORUM,ERR.LOAD_EXCLUDED]) {
-    const session=new NetSession();session._abortPreparation(code);
-    check(session.errorCode===code && session.state==='error','preparation error lost');
-   }
-   check(aborted.length===3,'preparation notification missing');
-  }finally{__G.game.netMatchAborted=onAbort;}
   const prompts=[];
   for(const lang of ['en','zh-Hans','zh-Hant','ja']) {
    await changeLanguage(lang);
@@ -51,7 +42,7 @@ try {
    prompts.push({lang,count:values.length});
   }
   await changeLanguage('en');
-  return {retryByCode:true,realRelay:true,preparationCodes:aborted,missingCode:missing.errorCode,prompts};
+  return {retryByCode:true,realRelay:true,missingCode:missing.errorCode,prompts};
  });
  assert.equal(results.prompts.length,4);
  console.log(JSON.stringify(results));

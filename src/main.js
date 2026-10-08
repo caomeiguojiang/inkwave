@@ -37,7 +37,6 @@ const params = new URLSearchParams(location.search);
 // solo offline (never with bots); without it such a stage only ever loads for an online match
 const DEV_STAGE = params.has('devstage');
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
-const yieldWork = () => globalThis.scheduler?.yield?.() || new Promise(r => setTimeout(r, 0));
 const REFRESH_RATES = [30, 48, 50, 60, 75, 90, 100, 120, 144, 165, 240]; // common display rates (Hz)
 
 // ------------------------------------------------------------------------------------------ persistence
@@ -56,16 +55,9 @@ async function loadModule(path, stubName) {
 
 class Game {
   async boot() {
-    const t0 = this._bootStart = performance.now();
-    // Generate each SVG only when its card/fallback is used, then cache it.
-    for (const m of MAPS) {
-      let thumb;
-      Object.defineProperty(m, 'thumb', { configurable: true, get() {
-        if (thumb !== undefined) return thumb;
-        try { return thumb = layoutThumbSVG(MAP_LAYOUTS[m.layout || m.id], m.theme); }
-        catch (e) { console.warn('thumb', m.id, e); return thumb = ''; }
-      } });
-    }
+    const t0 = performance.now();
+    // real top-down thumbnails for the stage cards, generated from each layout's geometry
+    for (const m of MAPS) { try { m.thumb = layoutThumbSVG(MAP_LAYOUTS[m.layout || m.id], m.theme); } catch (e) { console.warn('thumb', m.id, e); } }
     this.settings = G.settings = loadJSON('inkwave.settings', DEFAULT_SETTINGS);
     this.settings.language = initialPreference;
     // desktop app: the window's fullscreen state is owned by the native shell; mirror it into settings for the menu
@@ -82,56 +74,17 @@ class Game {
     this.fadeEl = document.getElementById('fade');
 
     // UI first so the loading screen shows immediately
-    const [menusMod, hudMod, audioMod, musicMod] = await Promise.all([
-      loadModule('./ui/menus.js'), loadModule('./ui/hud.js'),
-      loadModule('./audio/audio.js', true), loadModule('./audio/music.js', true),
-    ]);
-    G.audio = audioMod.audio; G.music = musicMod.music;
-    this._applyAudioVolumes();
+    const [menusMod, hudMod] = await Promise.all([loadModule('./ui/menus.js'), loadModule('./ui/hud.js')]);
     this.menus = G.menus = menusMod.Menus ? new menusMod.Menus(this.uiRoot, this._menuApi()) : null;
     this.hud = G.hud = hudMod.HUD ? new hudMod.HUD(this.uiRoot, { playSound: (n, o) => G.audio?.play(n, o) }) : null;
     // map diorama pins/finish live inside the HUD layer (under every other HUD element)
     try { const { DioramaOverlay } = await import('./ui/diorama.js'); this.diorama = new DioramaOverlay(this.hud ? this.hud.el : this.uiRoot); } catch (e) { console.error('[inkwave] diorama', e); this.diorama = null; }
     this.hud?.setVisible(false);
-    G.game = this; G.mode = 'menu';
-    this.input = G.input = new Input(app);
-    this.input.onKey = (e, repeat) => this._onKey(e, repeat);
-    this.input.onUnlock = () => this._onPointerUnlock();
+    this.menus?.show('loading');
     this.bootMarks = [];
-    // The existing menu is functional before creating a WebGL context or world.
-    // A static stage image preserves the art direction without simulating an attract match.
-    app.classList.add('is-menu-backdrop');
-    this.timer = new THREE.Timer(); this.timer.connect?.(document);
-    this.fpsAcc = 0; this.fpsN = 0; this.fps = 60;
-    window.__inkwave = this; window.__G = G;
-    this.menus?.show(params.has('skipTitle') ? 'main' : 'title');
-    this.menuReadyMs = this.bootMs = Math.round(performance.now() - t0);
-    performance.mark('inkwave:menu-ready');
-    requestAnimationFrame(() => this._loop());
-    try { (await import('./net/session.js')).installNet(); } catch (e) { console.error('[inkwave] net', e); }
-    G.net?.on?.('lobby', ({ lobby }) => this._roomPalette(lobby));
-    if (params.has('autostart')) this.startMatch({ mapId: params.get('map') || MAPS[0].id, duration: +params.get('autostart') || undefined, mode: ['boss', 'zones'].includes(params.get('mode')) ? params.get('mode') : 'turf' });
-  }
-
-  async ensureWorld(options = {}) {
-    if (this.worldReady) return;
-    if (!this._worldPromise) {
-      this.menus?.show('loading');
-      this._worldPromise = this._prepareWorld(options).catch(error => {
-        this.menus?.show('main');
-        const el = document.getElementById('boot-error');
-        if (el) { el.textContent = translate("Could not prepare the game. Reload to try again. ") + error.message; el.style.display = 'block'; }
-        throw error;
-      });
-    }
-    return this._worldPromise;
-  }
-
-  async _prepareWorld(options) {
-    const app = document.getElementById('app');
-    const t0 = this._bootStart;
     const progress = async (p, label) => { this.bootMarks.push([label, Math.round(performance.now() - t0)]); this.menus?.setLoading(p, label); await nextFrame(); };
     await progress(0.05, translate('Mixing ink…'));
+
     // renderer / scene
     this.R = new Renderer(app, this.settings);
     G.renderer = this.R.renderer;
@@ -139,7 +92,7 @@ class Game {
     const camera = (G.camera = new THREE.PerspectiveCamera(this.settings.fov, innerWidth / innerHeight, 0.15, 6500));
     camera.position.set(0, 40, -60);
     this.R.setScene(scene, camera);
-    this.input.canvas = this.R.renderer.domElement;
+    this.input = G.input = new Input(this.R.renderer.domElement);
     this.input.onKey = (e, repeat) => this._onKey(e, repeat);
     this.input.onUnlock = () => this._onPointerUnlock();
     // after a focus steal while the map was held, the next click on the game takes the mouse back (no pause detour)
@@ -148,37 +101,38 @@ class Game {
     });
 
     // modules built by other authors
-    const [charMod, fxMod, envMod] = await Promise.all([
-      import('./game/character.js'), import('./fx/fx.js'), import('./world/environment.js'),
+    const [charMod, fxMod, envMod, audioMod, musicMod] = await Promise.all([
+      loadModule('./game/character.js', true), loadModule('./fx/fx.js', true), loadModule('./world/environment.js', true),
+      loadModule('./audio/audio.js', true), loadModule('./audio/music.js', true),
     ]);
     this.CharacterClass = charMod.Character;
     try { this.PropKit = (await import('./world/props.js')).PropKit; } catch (e) { console.error('[inkwave] prop kit failed to load', e); this.PropKit = null; }
+    G.audio = audioMod.audio; G.music = musicMod.music;
     await progress(0.15, translate('Building the plaza…'));
 
     // world
     // (old ?map=sunset links = Tidewater at dusk)
-    const requestedMap = options.mapId || options.map || params.get('map');
-    const pm = requestedMap === 'sunset' ? 'tidewater' : requestedMap;
+    const pm = params.get('map') === 'sunset' ? 'tidewater' : params.get('map');
     let map = MAPS.find((m) => m.id === pm) || MAPS[0];
-    if (!options.online && !mapOfflineOk(map.id) && !DEV_STAGE) { console.info(`[inkwave] ${map.name} is online only — booting ${OFFLINE_MAPS[0].name}`); map = OFFLINE_MAPS[0]; }
-    this.time = options.time === 'dusk' || params.get('time') === 'dusk' || params.get('map') === 'sunset' ? 'dusk' : (this.settings.timeOfDay === 'dusk' ? 'dusk' : 'day');
+    if (!mapOfflineOk(map.id) && !DEV_STAGE) { console.info(`[inkwave] ${map.name} is online only — booting ${OFFLINE_MAPS[0].name}`); map = OFFLINE_MAPS[0]; }
+    this.time = params.get('time') === 'dusk' || params.get('map') === 'sunset' ? 'dusk' : (this.settings.timeOfDay === 'dusk' ? 'dusk' : 'day');
     this.theme = mapTheme(map, this.time);
     const q = QUALITY[this.settings.quality] || QUALITY.high;
     this.murals = await createMuralTexture();
     try {
       const { createTextureLibrary } = await import('./world/texlib.js');
-      this.texlib = await createTextureLibrary(G.renderer, { size: q.paintAtlas >= 4096 ? 512 : 256, stage: map.layout || map.id });
-    } catch (e) { throw new Error(translate("Could not prepare surface materials"), { cause: e }); }
+      this.texlib = await createTextureLibrary(G.renderer, { size: q.paintAtlas >= 4096 ? 512 : 256 });
+    } catch (e) { console.error('[inkwave] texture library failed — procedural fallback', e); this.texlib = null; }
     await this._buildWorld(map);
     this.zoneMarks = new ZoneMarks(scene);   // Zone Control ground markings: build / clear themselves on 'match:state'
-    await progress(0.4, translate("Filling the harbor…"));
+    await progress(0.4, translate('Filling the harbor…'));
     const B = G.level.bounds;
     G.env = new envMod.Environment(G.renderer, scene, { bounds: B, theme: this.theme, shadowSize: q.shadowSize, footprint: this._footprint(G.level) });
     if (G.env.envMap) scene.environment = G.env.envMap;
     // sky-fill balance (scene.environmentIntensity, hemisphere) + per-theme exposure are the environment theme's job
     // (Environment.setTheme), so a stage/time looks the same booted into or switched to mid-session
     G.renderer.toneMappingExposure = 0.94;
-    await progress(0.55, translate("Teaching squids to swim…"));
+    await progress(0.55, translate('Teaching squids to swim…'));
     G.projectiles = new Projectiles(scene);
     G.subs = new SubSystem(scene);
     G.specials = new SpecialSystem(scene);
@@ -199,28 +153,41 @@ class Game {
     try { const m = await import('./fx/fxHooks.js'); this.fxHooks = m.initFxHooks?.(G) || null; } catch (e) { if (!/Failed to fetch|Cannot find module|404/i.test(String(e))) console.error('[inkwave] fxHooks', e); }
     try { const m = await import('./fx/screenfx.js'); this.screenfx = m.ScreenFX ? new m.ScreenFX(this.R, G) : null; } catch (e) { if (!/Failed to fetch|Cannot find module|404/i.test(String(e))) console.error('[inkwave] screenfx', e); }
     this.showcase = new Showcase(G.renderer, this.CharacterClass);
+    // online session (G.net) — the menus' online screens and startNetMatch/netMatchGo/netMatchEnd below drive it
+    try { (await import('./net/session.js')).installNet(); } catch (e) { console.error('[inkwave] net', e); }
+    G.net?.on?.('lobby', ({ lobby }) => this._roomPalette(lobby));
     await progress(0.7, translate('Tuning the tentacles…'));
 
     this._setPalette(this._pickPalette());
     this._bindEvents();
-    // No background bots or character variants are built just to enter a menu.
+    this._startAttract();
     // warm up: compile every shader now so the first shot/splat never hitches
-    await progress(0.85, translate("Warming up…"));
+    await progress(0.85, translate('Warming up…'));
     this._warmup();
     // compile in parallel (KHR_parallel_shader_compile) so the loading screen keeps animating instead of freezing
     try { await G.renderer.compileAsync(scene, camera); } catch { G.renderer.compile(scene, camera); }
     for (const m of this._warmMeshes || []) { G.scene.remove(m); }
     this._warmMeshes?.[0]?.geometry.dispose(); this._warmMeshes = null;
     await progress(0.93, translate('Warming up…'));
-    for (let i = 0; i < 3; i++) { this._frame(1 / 60, true); await nextFrame(); }
+    for (let i = 0; i < 3; i++) { this._frame(1 / 60); await nextFrame(); }
     await progress(1, translate('Ready!'));
     await new Promise((r) => setTimeout(r, 250));
 
-    this.worldReady = true;
-    this.worldReadyMs = Math.round(performance.now() - this._bootStart);
-    performance.mark('inkwave:world-ready');
-    app.classList.remove('is-menu-backdrop');
+    this.timer = new THREE.Timer(); this.timer.connect?.(document);
+    this.fpsAcc = 0; this.fpsN = 0; this.fps = 60;
+    G.mode = 'menu';
+    this.menus?.show(params.has('skipTitle') ? 'main' : 'title');
+    // the online hub / lobby set loads in the background once the menus are idle (no arena flash on the first visit)
+    if (!params.has('autostart')) setTimeout(() => { if (G.mode === 'menu') this.showcase.preloadLobby?.(); }, 2500);
     this._applyAudioVolumes();
+    requestAnimationFrame((t) => this._loop(t));
+    if (params.has('autostart')) {
+      const pm = params.get('mode');
+      this.api.startMatch({ mapId: map.id, difficulty: params.get('difficulty') || this.settings.difficulty, duration: +params.get('autostart') || undefined, mode: pm === 'boss' || pm === 'zones' ? pm : 'turf' });
+    }
+    this.bootMs = Math.round(performance.now() - t0);
+    window.__inkwave = this; // debug/audit hook
+    window.__G = G;
     this.debug = {
       endMatch: (t = 0.5) => { if (this.match && !this.match.attract) this.match.time = t; },
       paintRandom: (n = 400) => { const v = new THREE.Vector3(); for (let i = 0; i < n; i++) { v.set((Math.random() - 0.5) * 48, 0.4, (Math.random() - 0.5) * 86); G.paint.splat(v, 0.8 + Math.random() * 1.4, Math.random() < 0.5 ? 0 : 1); } },
@@ -255,7 +222,6 @@ class Game {
   }
   async _buildWorldNow(map, scene, layoutId, mode = 'turf', worldKey = layoutId) {
     this.zoneMarks?.clear();   // zone markings belong to the old stage's faces
-    await this.texlib?.ensureStage?.(layoutId);
     if (this.levelMesh) { scene.remove(this.levelMesh, this.grateMesh); this.levelMesh.geometry.dispose(); this.grateMesh?.geometry.dispose(); this.levelMat.dispose(); this.grateMat?.dispose(); }
     if (this.decor) { scene.remove(this.decor.group); }
     if (this.props) { this.props.dispose?.(); this.props = null; }
@@ -304,18 +270,18 @@ class Game {
   // Baked AO (tools/bake-ao.mjs). Applied only when the bake matches this exact layout.
   async _loadLightmap(level, layoutId) {
     try {
-      const response = await fetch(`assets/lightmaps/${layoutId}.json`, { cache: 'no-cache' });
-      if (!response.ok) throw new Error(`Lightmap metadata HTTP ${response.status}`);
-      const meta = await response.json();
+      const meta = await (await fetch(`assets/lightmaps/${layoutId}.json`, { cache: 'no-cache' })).json();
       level.layoutLightmap(meta.ppm, meta.size);
-      if (level.layoutHash !== meta.hash) throw new Error(`Lightmap for ${layoutId} is out of date`);
+      if (level.layoutHash !== meta.hash) { console.warn(`[inkwave] lightmap for ${layoutId} is stale — re-run tools/bake-ao.mjs`); level.lightSize = 0; for (const f of level.faces) f.light = null; return null; }
       const tex = await new THREE.TextureLoader().loadAsync(`assets/lightmaps/${layoutId}.png?h=${meta.hash}`);
       tex.colorSpace = THREE.NoColorSpace;
       tex.generateMipmaps = true; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter;
       tex.anisotropy = 4;
       return tex;
     } catch (e) {
-      throw new Error(`Could not prepare lightmap for ${layoutId}: ${e.message}`, { cause: e });
+      console.warn('[inkwave] no lightmap for', layoutId, e.message);
+      for (const f of level.faces) f.light = null;
+      return null;
     }
   }
 
@@ -353,7 +319,6 @@ class Game {
   }
   paletteIndex() { const i = TEAM_PALETTES.indexOf(this.palette); return i >= 0 ? i : (Math.random() * TEAM_PALETTES.length) | 0; }
   _roomPalette(l) {
-    if (!this.worldReady) return;
     if (this.settings.colorblind || G.mode === 'match' || !l) return;
     const p = TEAM_PALETTES[l.palette];
     if (p && p !== this.palette) this._setPalette(p);
@@ -387,7 +352,7 @@ class Game {
     const api = (this.api = {
       version: VERSION,
       weapons: WEAPONS, weaponOrder: WEAPON_ORDER, specials: SPECIALS, specialOrder: SPECIAL_ORDER, sub: SUB.bomb, subs: SUBS, subOrder: SUB_ORDER, maps: MAPS, difficulties: DIFFICULTY,
-      getSettings: () => ({ ...self.settings, ...(self.pendingQuality ? { quality: self.pendingQuality } : {}) }),
+      getSettings: () => ({ ...self.settings }),
       setSettings: (partial) => self._setSettings(partial),
       getProfile: () => {
         const p = self.profile;
@@ -405,7 +370,7 @@ class Game {
         if (sub !== undefined) self.profile.sub = SUBS[sub] ? sub : null;
         if (special !== undefined) self.profile.special = SPECIALS[special] ? special : null;
         saveJSON('inkwave.profile', self.profile);
-        if (self.menus?.current === 'loadout' && weapon !== undefined) self.showcase?.showLoadout(weapon, G.teamColors[0], self.profile.style);
+        if (self.menus?.current === 'loadout' && weapon !== undefined) self.showcase.showLoadout(weapon, G.teamColors[0], self.profile.style);
         self._applyPracticeLoadout();   // in practice the new kit is in your hands straight away
       },
       startMatch: (o) => self.startMatch(o),
@@ -434,30 +399,17 @@ class Game {
   _specialFor(weapon) { return (SPECIALS[this.profile.special] && this.profile.special) || (WEAPONS[weapon || 'shooter'] || WEAPONS.shooter).special || 'slam'; }
 
   _setSettings(partial) {
-    partial = { ...partial };
-    if ('quality' in partial && this.R) {
-      this.pendingQuality = partial.quality === this.settings.quality ? null : partial.quality;
-      delete partial.quality;
-      if (this.pendingQuality) this.menus?.toast?.(translate("Graphics quality will apply before the next match."));
-    }
     Object.assign(this.settings, partial);
-    saveJSON('inkwave.settings', this.api.getSettings());
+    saveJSON('inkwave.settings', this.settings);
     if ('language' in partial) changeLanguage(partial.language);
     if ('quality' in partial || 'shadows' in partial || 'bloom' in partial) this.R?.applySettings(this.settings);
     if ('fullscreen' in partial && window.inkwaveNative) window.inkwaveNative.setFullScreen(!!partial.fullscreen);
     if ('master' in partial || 'music' in partial || 'sfx' in partial) this._applyAudioVolumes();
-    if ('colorblind' in partial && this.worldReady && G.mode !== 'match') this._setPalette(this._pickPalette());
+    if ('colorblind' in partial && G.mode !== 'match') this._setPalette(this._pickPalette());
   }
   _applyAudioVolumes() { G.audio?.setVolumes?.({ master: this.settings.master, music: this.settings.music, sfx: this.settings.sfx }); }
 
   _onScreen(s) {
-    // The editor's 3D preview must still work when opened before the first match.
-    if (!this.worldReady && (s === 'loadout' || s === 'locker')) {
-      this.ensureWorld().then(() => {
-        if (this.menus?.current === 'loading') this.menus.show(s);
-      }).catch(() => {}); // ensureWorld owns the visible error state
-      return;
-    }
     // the loadout opened mid-practice sits over the live stage: tuck the HUD away while it's up
     if (G.mode === 'match' && this.hud) {
       const hide = s === 'loadout';
@@ -559,7 +511,7 @@ class Game {
         G.audio?.play('splatted_self');
         G.audio?.duck?.(0.45, 2.2);
         // the card shows what did it (hud.js splatCause): the attacker's main weapon, or the sub / special / the sea
-        const by = attacker ? attacker.name : cause === 'water' ? null : translate("enemy ink");
+        const by = attacker ? attacker.name : cause === 'water' ? null : translate('enemy ink');
         this.hud?.showSplatted({ by, byColor: attacker ? G.teamHex[attacker.team] : '#6fd0ff', respawn: PLAYER.respawnTime, attacker: attacker || null, cause });
         this.rig.mode = 'spectate';
         this.rig.spectate = { actor: attacker && attacker.alive ? attacker : null, pos: victim.pos.clone(), from: victim.pos.clone() };
@@ -705,61 +657,7 @@ class Game {
     for (const m of [this.levelMat, this.grateMat]) setLevelLamps(m, G.level, k);
   }
 
-  startMatch(o = {}) {
-    if (this._starting) return this._starting;
-    if (this._loadingMatch) return Promise.resolve(false);
-    if (this._loadFailure) { this._showLoadFailure(this._loadFailure); return Promise.resolve(false); }
-    this._preparationCancelled = false;
-    this._loadingMatch = true;
-    this._starting = this._startMatch(o).catch(e => { this._handlePreparationError(e); return false; })
-      .finally(() => { this._loadingMatch = false; this._starting = null; });
-    return this._starting;
-  }
-
-  _assertPreparing() {
-    if (this._preparationCancelled) throw new DOMException('Match preparation was cancelled', 'AbortError');
-  }
-
-  _handlePreparationError(error) {
-    if (error.name !== 'AbortError') { this._showLoadFailure(error); return; }
-    this.match?.dispose(); this.match = G.match = null; G.mode = 'menu';
-    this.hud?.setVisible(false); this.menus?.show('main'); this._fade(0, 0);
-  }
-
-  _showLoadFailure(error) {
-    console.error('[inkwave] preparation failed', error);
-    this._loadFailure = error;
-    this.worldReady = false; // never simulate a partially prepared world
-    this.menus?.show('main'); this.hud?.setVisible(false); this._fade(0, 0);
-    const el = document.getElementById('boot-error');
-    if (el) { el.textContent = translate("Could not prepare the game. Reload to retry. ") + error.message; el.style.display = 'block'; }
-  }
-
-  async _applyPendingGraphics(map) {
-    if (!this.pendingQuality) return;
-    const quality = this.pendingQuality;
-    this.settings.quality = quality;
-    this.pendingQuality = null;
-    const q = QUALITY[quality] || QUALITY.medium;
-    this.R.applySettings(this.settings);
-    await yieldWork();
-    const size = q.paintAtlas >= 4096 ? 512 : 256;
-    if (this.texlib?.size !== size) {
-      const { createTextureLibrary } = await import('./world/texlib.js');
-      const next = await createTextureLibrary(G.renderer, { size, stage: map.layout || map.id });
-      this.texlib?.dispose(); this.texlib = next;
-    }
-    const oldFx = G.fx, { FX } = await import('./fx/fx.js');
-    const fx = new FX(G.scene, { quality: q });
-    for (const key of ['collider', 'onDropletLand', 'onSpeck', 'onRipple']) fx[key] = oldFx[key];
-    oldFx.dispose(); G.fx = fx; fx.setLighting?.(G.env.getSkyColors?.());
-    G.env.setShadowSize(q.shadowSize);
-    this.layoutId = this.worldKey = null; // paint atlas, props and geometry must match the new preset
-  }
-
-  async _startMatch(o = {}) {
-    await this.ensureWorld(o);
-    this._assertPreparing();
+  async startMatch(o = {}) {
     const practice = !!o.practice;
     const opts = {
       mapId: o.mapId === 'sunset' ? 'tidewater' : (o.mapId || this.mapDef.id),
@@ -776,8 +674,6 @@ class Game {
     this.input.requestLock();
     this.menus?.show(null);
     await this._fade(1, 350);
-    this.menus?.show('loading'); this.menus?.setLoading(0.4, translate("Building the plaza…"));
-    await this._fade(0, 0);
     G.music?.stop?.(0.3); this._musicTrack = null;
     // start buffering this round's match song and the final-minute song while the world loads
     G.music?.preload?.('battle'); if (!practice) G.music?.preload?.('battle_final');
@@ -792,7 +688,6 @@ class Game {
       map = OFFLINE_MAPS[0];
     }
     if (opts.mode === 'boss' && !mapBossOk(map.id)) opts.mode = 'turf';
-    await this._applyPendingGraphics(map);
     await this._buildWorld(map, opts.mode);   // no-op when this stage (+ mode variant) is already built
     const theme = mapTheme(map, opts.time);
     this.time = opts.time === 'dusk' ? 'dusk' : 'day';
@@ -812,14 +707,11 @@ class Game {
     }));
     m.setup();
     await this._warmCharacters(m);
-    await this._finishPreparation();
-    this._assertPreparing();
     this.minimap.setViewerTeam(0);
     G.mode = 'match';
     this.hud?.setVisible(false);
     this.hudPrompt = null; this._hintT = 0; this._hints = {};
     this.hud?.setPractice?.(practice);
-    this.menus?.show(null);
     m.start();
     if (practice) {
       // no intro fly-over: straight in, special charged so it can be tried right away
@@ -880,27 +772,14 @@ class Game {
   // ---- online (src/net/session.js drives these) -----------------------------------------------------------------
   // Build the host's match: same stage / time / palette / roster on every client; the intro starts on netMatchGo.
   async startNetMatch(cfg, nm) {
-    if (this._loadingMatch) throw new DOMException(translate("Previous preparation is still finishing"), 'AbortError');
-    this._preparationCancelled = false;
-    this._loadingMatch = true;
-    try { return await this._startNetMatch(cfg, nm); }
-    catch (error) { this._handlePreparationError(error); throw error; }
-    finally { this._loadingMatch = false; }
-  }
-  async _startNetMatch(cfg, nm) {
-    await this.ensureWorld({ ...cfg, online: true });
-    if (G.net?.match !== nm || G.net.state !== 'starting') throw new DOMException('Match preparation was cancelled', 'AbortError');
     G.audio?.init?.();
     this.menus?.show(null);
     await this._fade(1, 350);
-    this.menus?.show('loading'); this.menus?.setLoading(0.4, translate("Building the plaza…"));
-    await this._fade(0, 0);
     G.music?.stop?.(0.3); this._musicTrack = null;
     this.showcase.hide();
     if (this.match) this.match.dispose();
     G.projectiles.clear(); G.subs.clear(); G.specials.clear(); G.fx.clear?.(); G.paint.clear(); this._clearDeathMarks();
     const map = MAPS.find((m) => m.id === cfg.map) || MAPS[0];
-    await this._applyPendingGraphics(map);
     await this._buildWorld(map, cfg.mode);   // no-op when this stage (+ mode variant) is already built
     const theme = mapTheme(map, cfg.time);
     this.time = cfg.time === 'dusk' ? 'dusk' : 'day';
@@ -919,9 +798,6 @@ class Game {
     }));
     m.setup();
     await this._warmCharacters(m);   // before 'ready': nobody starts until every shader a squidkid can use is compiled
-    await this._finishPreparation();
-    this._assertPreparing();
-    if (G.net?.match !== nm || G.net.state !== 'starting') throw new DOMException('Match preparation was cancelled', 'AbortError');
     nm.bind(m);
     this.lastMatchOpts = null;
     this.minimap.setViewerTeam(m.local ? m.local.team : 0);
@@ -937,33 +813,13 @@ class Game {
   // weapons) and build every kid's tier meshes while the screen is still faded out, so none of it lands mid-match.
   // Programs are shared, so after the first kid of each weapon the rest are a few ms each.
   async _warmCharacters(m) {
-    for (let i = 0; i < m.actors.length; i++) {
-      this._assertPreparing();
-      this.menus?.setLoading(0.7 + 0.2 * i / m.actors.length, translate("Warming up…"));
-      await yieldWork();
-      await m.actors[i].character?.warmAll?.();
-    }
-    if (m.boss) {
-      await m.boss.model.ready;
-      for (const o of m.boss.warm()) { await yieldWork(); await G.renderer.compileAsync(o, G.camera, G.scene); }
-    }
-  }
-  async _finishPreparation() {
-    this.menus?.setLoading(0.95, translate("Warming up…"));
-    await nextFrame();
-    const r = G.renderer, previous = r.getRenderTarget();
-    try { r.setRenderTarget(this.R.composer.readBuffer); await r.compileAsync(G.scene, G.camera); }
-    finally { r.setRenderTarget(previous); }
-    // Include actual render-target allocation and post-processing before releasing the gate.
-    this.R.render();
-    await this.R.waitGPU();
-    this.menus?.setLoading(1, translate("Ready!"));
-    await nextFrame();
+    const jobs = m.actors.map((a) => a.character?.warmAll ? Promise.resolve(a.character.warmAll()).catch((e) => console.warn('[inkwave] warm', e)) : null).filter(Boolean);
+    if (m.boss) jobs.push(Promise.resolve(m.boss.model.ready).then(() => Promise.all(m.boss.warm().map((o) => G.renderer.compileAsync(o, G.camera, G.scene)))).catch((e) => console.warn('[inkwave] boss warm', e)));
+    if (jobs.length) await Promise.race([Promise.all(jobs), new Promise((r) => setTimeout(r, 8000))]);   // never hang a load
   }
   netMatchGo() {
     const m = this.match;
     if (!m || m.state !== 'init') return;
-    this.menus?.show(null);
     this.input.requestLock();
     m.start();
   }
@@ -1039,10 +895,8 @@ class Game {
     G.music?.resume?.();
   }
   async quitToMenu(screen = 'main') {
-    if (this._loadingMatch) this._preparationCancelled = true;
     clearTimeout(this._netEndT);
     if (G.net && G.net.state !== 'offline' && G.net.state !== 'error') G.net.leave();
-    if (!this.worldReady || this._loadingMatch) { this.menus?.show('main'); this._fade(0, 0); return; }
     this.input.exitLock();
     this.menus?.show(null);
     await this._fade(1, 350);
@@ -1153,8 +1007,8 @@ class Game {
       // Zone Control: less per point of turf (a 5 min match), extra for ink laid on the live zone, a knockout bonus
       const ZX = PROGRESSION.zones || { turfScale: 0.6, xpPerZoneTurfPoint: 1, xpKnockout: 300 };
       const zoneTurf = Math.round(local.stats.zoneTurf || 0);
-      xpParts = [[won ? translate("WIN BONUS") : translate("MATCH"), won ? PROGRESSION.xpWin : PROGRESSION.xpLose], [translate("TURF"), Math.round(turf * PROGRESSION.xpPerTurfPoint * ZX.turfScale)],
-        [translate("ZONE INK"), Math.round(zoneTurf * ZX.xpPerZoneTurfPoint)], [translate("SPLATS"), Math.round(local.stats.splats * PROGRESSION.xpPerSplat)], [translate("KNOCKOUT"), won && zr.reason === 'knockout' ? ZX.xpKnockout : 0]].filter(([, v], i) => i < 2 || v > 0);
+      xpParts = [[won ? translate('WIN BONUS') : translate('MATCH'), won ? PROGRESSION.xpWin : PROGRESSION.xpLose], [translate('TURF'), Math.round(turf * PROGRESSION.xpPerTurfPoint * ZX.turfScale)],
+        [translate('ZONE INK'), Math.round(zoneTurf * ZX.xpPerZoneTurfPoint)], [translate('SPLATS'), Math.round(local.stats.splats * PROGRESSION.xpPerSplat)], [translate('KNOCKOUT'), won && zr.reason === 'knockout' ? ZX.xpKnockout : 0]].filter(([, v], i) => i < 2 || v > 0);
       gained = xpParts.reduce((a, [, v]) => a + v, 0);
     }
     const before = { level: p.level, xp: p.xp, toNext: PROGRESSION.xpForLevel(p.level) };
@@ -1251,12 +1105,7 @@ class Game {
     else d.fast = 0;
   }
 
-  _frame(dt, preparing = false) {
-    if ((!this.worldReady || this._loadingMatch) && !preparing) {
-      this.input.pollPad(); this._padMenus();
-      G.net?.update?.(dt); this.menus?.update?.(dt); this.input.endFrame();
-      return;
-    }
+  _frame(dt) {
     const tA = performance.now();
     G.renderer.info.reset();
     G.time += dt;
@@ -1343,7 +1192,7 @@ class Game {
     const sm = G.renderer.shadowMap;
     sm.autoUpdate = false;
     this._frameN = (this._frameN || 0) + 1;
-    if (this.settings.shadows !== false && (this.settings.quality !== 'low' || (this._frameN & 1))) sm.needsUpdate = true;
+    if (this.settings.quality !== 'low' || (this._frameN & 1)) sm.needsUpdate = true;
     if (!this._skipRender) {
       if (!setUp) this.R.render();
       if (this.showcase.mode) sm.needsUpdate = true;
@@ -1487,14 +1336,14 @@ class Game {
     if (m.state === 'playing' && a.alive) {
       if (m.controller?.mapHeld) prompt = null;   // the map diorama carries its own super-jump hints
       else if (a.superJumpState) prompt = null;
-      else if (this._lowInkFlash > 0) { this._lowInkFlash -= dt; prompt = translate("Low ink! Hold SHIFT in your ink to refill"); }
+      else if (this._lowInkFlash > 0) { this._lowInkFlash -= dt; prompt = translate('Low ink! Hold SHIFT in your ink to refill'); }
       else if (a.specialReady() && (this._hints.specialT = (this._hints.specialT || 0) + dt) > 2) prompt = translate("Special ready! Press F");
-      else if (inkF < 0.25 && a.form !== 'squid') prompt = translate("Hold SHIFT to swim in your ink and refill");
-      else if (m.duration - m.time < 8 && !this._hints.shot) prompt = m.zones ? translate("Ink the zone and hold it to count down!") : translate("Paint the ground — most turf wins!");
+      else if (inkF < 0.25 && a.form !== 'squid') prompt = translate('Hold SHIFT to swim in your ink and refill');
+      else if (m.duration - m.time < 8 && !this._hints.shot) prompt = m.zones ? translate('Ink the zone and hold it to count down!') : translate('Paint the ground — most turf wins!');
       if (!a.specialReady()) this._hints.specialT = 0;
       if (a.intent.fire) this._hints.shot = true;
     }
-    if (m.practice && m.state === 'playing' && a.alive && this._hintT < 7) prompt = translate("Practice · L to change loadout · ESC for the practice menu");
+    if (m.practice && m.state === 'playing' && a.alive && this._hintT < 7) prompt = translate('Practice · L to change loadout · ESC for the practice menu');
     const strikeAim = !!(a.specialActive && a.specialActive.id === 'strike' && a.specialActive.aiming);
     // "Yeah!" cheers → screen positions over the cheering player (anyone on screen)
     const cheers = [];
@@ -1519,7 +1368,7 @@ class Game {
       this.minimap.toCanvas(d.x, d.z, t); d.mx = t.x / this.minimap.w; d.my = t.y / this.minimap.h;
     }
     if (a.specialActive && m.state === 'playing' && a.alive) prompt = G.specials.prompt(a) || prompt;
-    else if (m.state === 'playing' && a.alive && m.actors.some((o) => o !== a && o.team === a.team && o.specialActive?.id === 'booyah' && !o.specialActive.thrown)) prompt = translate("A teammate is charging a Cheer Orb — press C to cheer it on!");
+    else if (m.state === 'playing' && a.alive && m.actors.some((o) => o !== a && o.team === a.team && o.specialActive?.id === 'booyah' && !o.specialActive.thrown)) prompt = translate('A teammate is charging a Cheer Orb — press C to cheer it on!');
     const frame = {
       time: m.practice ? null : m.time,
       teams: a.team === 1 ? m.teamSummary().reverse() : m.teamSummary(),   // HUD: [your team, theirs]
@@ -1550,5 +1399,5 @@ const game = new Game();
 game.boot().catch((e) => {
   console.error(e);
   const el = document.getElementById('boot-error');
-  if (el) { el.textContent = translate("Something went wrong while loading: ") + e.message; el.style.display = 'block'; }
+  if (el) { el.textContent = translate('Something went wrong while loading: ') + e.message; el.style.display = 'block'; }
 });

@@ -16,7 +16,7 @@
 //   {"t":"leave","id","host"}                                   {"t":"err","c":"ERR_…","e":"…"} (then close)
 import { DurableObject } from 'cloudflare:workers';
 
-const PROTO = 2, MAX = 8;
+const PROTO = 3, MAX = 8;
 // Public relay hygiene: only the game's own site may open rooms (plus local dev), each socket gets a message budget
 // (the game sends ~25/s; a runaway or hostile client is cut off before it can eat the account's quota) and a size cap.
 const ORIGIN_OK = (o) => /^https:\/\/([a-z0-9-]+\.)?inkwave-aah\.pages\.dev$/.test(o)

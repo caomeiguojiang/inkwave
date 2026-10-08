@@ -1674,15 +1674,6 @@ export class Environment {
     this.sun.shadow.needsUpdate = true;
   }
 
-  setShadowSize(size) {
-    if (this.shadowSize === size) return;
-    this.shadowSize = size;
-    this.sun.shadow.map?.dispose(); this.sun.shadow.map = null;
-    this.sun.shadow.mapSize.set(size, size);
-    this.sun.shadow.radius = 2.2 * (size / 4096) + 0.8;
-    this._fitShadow();
-  }
-
   // ------------------------------------------------------------------ sky + env map
   _buildSky() {
     const geo = new THREE.SphereGeometry(1, 48, 24);

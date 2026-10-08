@@ -566,7 +566,7 @@ export const DEFAULT_SETTINGS = {
   padSensitivity: 1.0,
   invertY: false,
   fov: 82,                  // horizontal FOV at 16:9, 65..100
-  quality: 'medium',        // Balanced first visit; persisted manual choices always win.
+  quality: 'high',          // 'low' | 'medium' | 'high' | 'ultra'
   shadows: true,
   bloom: true,
   cameraShake: 1.0,         // 0..1

@@ -11,10 +11,6 @@
 // to a code when no `c` is present.
 export const ERR = {
   BUSY: 'ERR_BUSY',
-  HOST_LOADING: 'ERR_HOST_LOADING',
-  LOAD_TIMEOUT: 'ERR_LOAD_TIMEOUT',
-  LOAD_QUORUM: 'ERR_LOAD_QUORUM',
-  LOAD_EXCLUDED: 'ERR_LOAD_EXCLUDED',
   STALE: 'ERR_STALE',            // the page is running an older build than the relay
   CODE_TAKEN: 'ERR_CODE_TAKEN',  // create: that 5-character code is already in use
   NOT_FOUND: 'ERR_NOT_FOUND',    // join: no room with that code
@@ -38,10 +34,6 @@ export function netError(code, message = '') {
 const LEGACY = {
   'Please refresh the page — the game was updated': ERR.STALE,
   'Server is busy. Try again later.': ERR.BUSY,
-  'Host left while loading': ERR.HOST_LOADING,
-  'Loading timed out. Please try again.': ERR.LOAD_TIMEOUT,
-  'Not enough players finished loading. Please try again.': ERR.LOAD_QUORUM,
-  'Loading took too long. This match started without you.': ERR.LOAD_EXCLUDED,
   'Room code taken': ERR.CODE_TAKEN,
   'Room not found': ERR.NOT_FOUND,
   'Room is full': ERR.FULL,

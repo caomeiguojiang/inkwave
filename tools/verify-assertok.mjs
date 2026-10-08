@@ -16,7 +16,7 @@ try {
     await page.screenshot({path:`.local/screens/${lang}-main.png`});
     if (lang==='zh-CN' || lang==='ja-JP') for (const screen of ['settings','howto','loadout','setup','online']) {
       await page.evaluate(s=>__G.menus.show(s),screen);
-      await page.waitForFunction(s=>__G.menus.current===s && (s!=='loadout'||__inkwave.worldReady),{timeout:180000},screen);
+      await page.waitForFunction(s=>__G.menus.current===s && (s!=='loadout'||!!__inkwave.showcase),{timeout:180000},screen);
       await new Promise(ok=>setTimeout(ok,550));await page.evaluate(()=>document.fonts.ready);
       await page.screenshot({path:`.local/screens/${lang}-${screen}.png`});
       writeFileSync(`.local/screens/${lang}-${screen}.txt`,await page.evaluate(()=>document.body.innerText));

@@ -1,4 +1,4 @@
-// Protocol-compatible standalone adapter for server/src/index.js (fork PROTO=2).
+// Protocol-compatible standalone adapter for server/src/index.js (fork PROTO=3).
 // Rooms are ephemeral. Restarting the service disconnects matches; no player data is stored.
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
@@ -64,7 +64,7 @@ export function createRelay({ origins = ['http://localhost:8490', 'http://127.0.
       const fail = (c, e) => { send(ws, {t:'err',c,e}); ws.close(4000,e); remove(ws); };
       const code = m[1].toUpperCase(), create = url.searchParams.get('create') === '1';
       let room = rooms.get(code);
-      if (url.searchParams.get('v') !== '2') return fail('ERR_STALE', 'Please refresh the page — the game was updated');
+      if (url.searchParams.get('v') !== '3') return fail('ERR_STALE', 'Please refresh the page — the game was updated');
       if (create && room) return fail('ERR_CODE_TAKEN', 'Room code taken');
       if (!create && !room) return fail('ERR_NOT_FOUND', 'Room not found');
       if (room?.members.size >= 8) return fail('ERR_FULL', 'Room is full');

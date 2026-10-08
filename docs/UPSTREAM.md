@@ -7,11 +7,11 @@ short-lived `codex/upstream-*` branch for each reviewed update. Preserve Git his
 
 | Area | Policy |
 | --- | --- |
-| Gameplay, stages, equipment, assets, bug fixes | Integrate compatible author updates and check interactions with fork performance/preparation changes. |
+| Gameplay, stages, equipment, assets, bug fixes | Follow the author's implementation; do not reintroduce custom performance/preparation behavior. |
 | Localization | Keep i18next, four independent catalogs, browser detection and native settings persistence. Adapt new author text/calls to this runtime. |
 | Language UI / typography | Keep approved shared panel, flat rows, subtle separators, focus and selected feedback, no dropdown dots, regional Swei fonts. |
 | Language switching | Keep Game/Match/HUD/session/socket identity. Do not import upstream HUD recreation. |
-| Network | Take compatible logic improvements; adapt both Node and Worker relays and preserve protocol-2 preparation rules. |
+| Network | Take compatible logic improvements; keep the same-origin deployment adapter; NetSession follows upstream. Protocol 3 fences off retired custom-handshake clients. |
 | Build/deployment | Build off-host, use immutable releases and explicit 1Panel deployment. |
 
 These are intentional product choices, not conflicts to erase automatically.
@@ -41,7 +41,7 @@ Do not create an `ours` merge merely to make the unmerged count zero.
 4. Audit new/changed visible strings (including dynamic templates, aria labels,
    HUD and game prompts). `extract-i18n.mjs` only suggests candidates; it does not
    prove completeness. Update en/zh-Hans/zh-Hant/ja, then regenerate/check font subsets.
-5. Run build, relay/error/preparation tests, language UI checks and real multiplayer
+5. Run build, relay/error/original-behavior tests, language UI checks and real multiplayer
    with live language switching. Add scenario-specific checks for affected gameplay.
    Clean merges and nonempty catalogs alone do not establish behavior or translation quality.
 6. Record review decisions and exact upstream SHA, merge the reviewed branch into

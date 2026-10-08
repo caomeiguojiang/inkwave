@@ -2,7 +2,7 @@
 import puppeteer from 'puppeteer-core';
 import {mkdirSync,writeFileSync} from 'node:fs';
 const option=(key,fallback)=>{const i=process.argv.indexOf('--'+key);return i<0?fallback:process.argv[i+1];};
-const name=option('name','startup'), url=option('url','http://127.0.0.1:8492/');
+const name=option('name','startup'), url=option('url','http://127.0.0.1:8490/');
 const browser=await puppeteer.launch({executablePath:process.env.CHROME_PATH||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true,args:['--enable-gpu','--autoplay-policy=no-user-gesture-required'],defaultViewport:{width:1280,height:720}});
 const errors=[];
 try {
@@ -19,7 +19,7 @@ try {
   const settingsClickMs=Date.now()-clickStart;
   if(process.argv.includes('--preview')){
     await page.evaluate(()=>__G.menus.show('locker'));
-    await page.waitForFunction('__inkwave.worldReady && __G.menus.current === "locker" && __inkwave.showcase?.mode === "locker"',{timeout:180000});
+    await page.waitForFunction('__G.menus.current === "locker" && __inkwave.showcase?.mode === "locker"',{timeout:180000});
     await page.evaluate(()=>__inkwave.api.toMainMenu());
     await page.waitForFunction('__G.menus.current === "main"',{timeout:30000});
   }

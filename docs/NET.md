@@ -140,30 +140,10 @@ point would sit under a UI panel), `lobbySlotAnchor(row, i, out)` (unclaimed mar
 room (locker, a match) finds everyone already standing on their marks: arrivals never replay. `opts.quick` is still
 accepted and no longer needed. Audits: `showcase.debugCam = { pos, target, fov }` overrides the set camera.
 
-## Bounded resource preparation
+## Assertok adapter (2026-10-08)
 
-`Preparation` (`src/net/preparation.js`) is a pure policy object driven by
-NetSession. A client reports ready only after the selected scene, character
-variants and GPU work are ready. The host distributes one `go` message containing
-`id` and `excluded` player IDs. Excluded clients leave the attempt; all other
-clients apply existing `NetMatch.onLeave` ownership/removal rules before launch.
-Messages from excluded owners are ignored for the remainder of that match.
-
-The default grace period is 30 seconds after a strict majority including the host
-is ready. The attempt has a 120-second total limit, with a 130-second client
-fallback if the host cannot respond. Missing host or majority aborts the attempt;
-valid map/team constraints are always checked. Complete readiness starts without
-waiting out the grace period. Cancellation and stale match IDs cannot launch a
-new match. Host changes during loading abort instead of inheriting partial state.
-
-UI integration can subscribe to `preparation` with `{ ready, total }` on the host.
-The loading policy tests use injected timestamps; the three-client browser test
-shortens grace only inside its own page. Production constants are not changed.
-
-Deploy these client changes together. Compatibility with cached older clients
-has not been implemented; version admission/cache invalidation must be addressed
-when integrating this local branch for publication.
-
-Relay errors carry `{t:"err", c:"ERR_*", e:"English fallback"}`. Both relay adapters
-retain protocol 2. Clients accept legacy frames without `c`; translation happens
-only when menus/toasts render the code. See [2026-10-08 notes](upstream-20261008.md).
+The author's NetSession start/ready/go policy is restored verbatim from 98ea296.
+The custom majority, exclusion and preparation-timeout policy has been removed.
+The standalone same-origin relay remains. Its compatibility version is now 3,
+solely to reject cached protocol-2 pages using the retired handshake. Room and
+match behavior follow upstream; this does not join the author's public room pool.

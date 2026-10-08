@@ -4,7 +4,7 @@
 
 import { ERR, netError, codeFromRelay } from './errors.js';
 
-export const PROTO = 2;
+export const PROTO = 3;
 
 // Web and relay share the current origin; ?relay=… is an explicit development override.
 export const PROD_RELAY = `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;

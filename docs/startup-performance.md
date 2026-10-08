@@ -1,3 +1,5 @@
+> Historical experiment, retired on 2026-10-08 by user choice. Runtime now follows upstream; see original-behavior-20261008.md. Do not use these old acceptance criteria for releases.
+
 # Startup performance experiment
 
 Date: 2026-09-29. Base: `6203110964364f50244bf61e3bfd4e322a792346`.
