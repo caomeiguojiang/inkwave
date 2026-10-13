@@ -28,6 +28,7 @@ import { BotBrain } from '../game/bots.js';
 import { Boss } from '../boss/boss.js';
 
 const TICK = 1 / 20;
+const SPAWN_HIDE_MAX = 1.5;   // seconds waiting for a buffered post-respawn sample to reach playback
 
 const r2 = (x) => Math.round(x * 100) / 100;
 const r3 = (x) => Math.round(x * 1000) / 1000;
@@ -311,6 +312,14 @@ export class NetMatch {
     while (buf.length > 2 && buf[1].t < tr - 0.25) buf.shift();
     const S = n.cur || (n.cur = blankSample());
     const mode = this._pathAt(buf, tr, S);
+    // A delayed/backgrounded owner can leave playback on the death sample. Recover only once the new spawn is
+    // buffered and the hide deadline has passed. Drop stale history for this actor so the next frame cannot jump
+    // back to its death spot; keep the shared owner clock and normal respawn interpolation unchanged.
+    const latest = buf[buf.length - 1];
+    if (n.spawnPending && S.tp === n.deathTp && latest.tp !== n.deathTp && now() - n.spawnAt > SPAWN_HIDE_MAX) {
+      buf.splice(0, buf.length - 1);
+      copySample(latest, S);
+    }
     if (mode === 2) this.stats.extrap++;
     let snapNow = false;
     if (S.tp !== n.tp) { snapNow = true; n.tp = S.tp; this.stats.snaps++; }
@@ -623,7 +632,7 @@ export class NetMatch {
   _remoteRespawn(a) {
     a.alive = true; a.hp = PLAYER.hp; a.invuln = PLAYER.spawnInvuln;
     a.respawnTimer = 0;
-    a.net.spawnPending = true;
+    a.net.spawnPending = true; a.net.spawnAt = now();
   }
 
   // ---- hits (victim's owner) ------------------------------------------------------------------------------------------

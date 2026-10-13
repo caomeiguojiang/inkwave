@@ -1,11 +1,17 @@
 {
   "repository": "https://github.com/jaydendavisnc/inkwave.git",
-  "last_reviewed_commit": "98ea29694ab3eebaaeaa995c2b525ac883a48de5",
+  "last_reviewed_commit": "679d2dba48457c239f2c60ba1ffc17d1fe789f07",
   "last_fully_merged_commit": "3e9b5505ea900cb41851b4d75f16d488552b1794",
-  "reviewed_on": "2026-10-08",
+  "reviewed_on": "2026-10-13",
   "mode": "selective",
-  "record": "docs/upstream-20261008.md",
+  "record": "docs/fork-fixes-20261013.md",
+  "recovered_from": "https://github.com/qn1994526/inkwave",
   "decisions": [
+    {
+      "area": "Oct-9 upstream and community fixes",
+      "decision": "Port click-to-relock; judge translation shadowing is inapplicable. Adopt weak actor FX caches and adapt the respawn-hide deadline without changing normal interpolation or shared playback clocks.",
+      "record": "docs/fork-fixes-20261013.md"
+    },
     {
       "area": "localization framework and UI",
       "decision": "retain native i18next four-language settings, Swei regional fonts, and in-place HUD updates",

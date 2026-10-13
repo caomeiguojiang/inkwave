@@ -32,7 +32,7 @@ class FxHooks {
   constructor(G) {
     this.G = G;
     this.seen = Object.create(null);     // events that actually fired → their polling fallbacks switch off
-    this.st = new Map();                 // actor → per-actor state
+    this.st = new WeakMap();             // actor → state; do not retain characters from finished rounds
     this.bombs = new Map();              // bomb record → { gp, gn, beepT, vy, stamp }
     this.clouds = new Map();             // storm cloud → { stamp, puddleT, flashT }
     this.seenBeams = new WeakSet();
@@ -41,7 +41,7 @@ class FxHooks {
     this.count = Object.create(null);    // per-system trigger counters (audits: __inkwave.fxHooks.stats())
     this.edges = []; this.edgeLevel = null;
     this.sprayT = 0; this.featherT = 4 + rand() * 6;
-    this.flickT = new Map();
+    this.flickT = new WeakMap();          // actor → last flick; same lifetime as the actor
     this.enabled = true;
     this._sp = new THREE.Vector3();
     this.heads = new Map();              // slosh wave head globs in flight → last seen { x, y, z, vx, vz, t, team, color }

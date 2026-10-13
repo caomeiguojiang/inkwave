@@ -95,9 +95,11 @@ class Game {
     this.input = G.input = new Input(this.R.renderer.domElement);
     this.input.onKey = (e, repeat) => this._onKey(e, repeat);
     this.input.onUnlock = () => this._onPointerUnlock();
-    // after a focus steal while the map was held, the next click on the game takes the mouse back (no pause detour)
+    // Esc can temporarily refuse pointer lock. A later click in a live round retries it without another pause detour.
     this.R.renderer.domElement.addEventListener('mousedown', () => {
-      if (this._relock && G.mode === 'match' && this.match && !this.match.paused && !this.menus?.current) { this._relock = false; this.input.requestLock(); }
+      const m = this.match;
+      if (G.mode !== 'match' || !m || m.paused || this.menus?.current) return;
+      if (this._relock || m.state === 'intro' || m.state === 'playing') { this._relock = false; this.input.requestLock(); }
     });
 
     // modules built by other authors
